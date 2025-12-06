@@ -5,20 +5,22 @@ class Command:
         func,
         description: str = "",
         example: str = "",
+        aliases: list[str] = [],
     ):
         self.name = name
         self.description = description
         self.example = example
+        self.aliases = aliases
 
-        self.func = func
+        self.handler = func
 
     def execute(self, *args) -> None:
         try:
             if len(args) == 0:
-                self.func()
+                self.handler()
                 return
 
-            self.func(*args)
+            self.handler(*args)
         except Exception as e:
             print(f"error executing command '{self.name}': {e}")
 

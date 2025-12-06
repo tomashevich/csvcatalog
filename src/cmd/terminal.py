@@ -8,6 +8,9 @@ class Terminal:
         self.commands: dict[str, Command] = {}
 
     def register_command(self, command: Command) -> None:
+        for name in command.aliases:
+            self.commands[name] = command
+
         self.commands[command.name] = command
 
     def run(self) -> None:
