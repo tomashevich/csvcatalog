@@ -25,7 +25,7 @@ class Terminal:
                 args = cmd[1:]
 
                 if self.commands.get(name, 0):
-                    self.commands[name].execute(args)
+                    self.commands[name].execute(*args)
 
                 else:
                     print("unknown command")

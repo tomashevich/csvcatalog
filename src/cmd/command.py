@@ -12,12 +12,15 @@ class Command:
 
         self.func = func
 
-    def execute(self, args: list[any] | None = None) -> None:
-        if args is None:
-            self.func()
-            return
+    def execute(self, *args) -> None:
+        try:
+            if len(args) == 0:
+                self.func()
+                return
 
-        self.func(args)
+            self.func(*args)
+        except Exception as e:
+            print(f"error executing command '{self.name}': {e}")
 
     def __str__(self) -> str:
         return f"{self.name}{f': {self.description}' if self.description else ''} {'{' + self.example + '}' if self.example else ''}"

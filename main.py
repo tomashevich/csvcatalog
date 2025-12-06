@@ -8,12 +8,18 @@ def main():
     commands = [
         Command(
             "help",
-            lambda _: print(
+            lambda: print(
                 f"Available commands: \n   {('\n   '.join(str(cmd) for cmd in commands))}"
             ),
         ),
-        Command("exit", lambda _: exit(0)),
-        Command("clear", lambda _: os.system("clear")),
+        Command("exit", lambda: exit(0)),
+        Command("clear", lambda: os.system("clear")),
+        Command(
+            "system",
+            lambda *cmd: os.system(" ".join(cmd)),
+            description="execute a system command",
+            example="system ls",
+        ),
     ]
 
     terminal = Terminal()
