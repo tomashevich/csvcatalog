@@ -7,7 +7,9 @@ from src.extractor.extractor import Extractor
 
 def main():
     ex = Extractor()
+    terminal = Terminal()
 
+    # Register all commands
     commands = [
         Command(
             "help",
@@ -16,7 +18,7 @@ def main():
             ),
         ),
         Command("exit", lambda: exit(0)),
-        Command("clear", lambda: os.system("clear")),
+        Command("clear", lambda: os.system("clear"), aliases=["cls", "c"]),
         Command(
             "system",
             lambda *cmd: os.system(" ".join(cmd)),
@@ -25,8 +27,6 @@ def main():
         ),
     ]
     commands.extend(ex.commands)
-
-    terminal = Terminal()
 
     for command in commands:
         terminal.register_command(command)
