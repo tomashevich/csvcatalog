@@ -2,9 +2,12 @@ import os
 
 from src.cmd.command import Command
 from src.cmd.terminal import Terminal
+from src.extractor.extractor import Extractor
 
 
 def main():
+    ex = Extractor()
+
     commands = [
         Command(
             "help",
@@ -21,6 +24,7 @@ def main():
             example="system ls",
         ),
     ]
+    commands.extend(ex.commands)
 
     terminal = Terminal()
 
