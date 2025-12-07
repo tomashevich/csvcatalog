@@ -1,4 +1,6 @@
+import readline as _FOR_TERMINAL_HISTORY  # noqa: F401
 import shlex
+import time
 
 from .command import Command
 
@@ -6,6 +8,7 @@ from .command import Command
 class Terminal:
     def __init__(self):
         self.commands: dict[str, Command] = {}
+        self.confirm_time = time.time()
 
     def register_command(self, command: Command) -> None:
         for name in command.aliases:
@@ -15,11 +18,11 @@ class Terminal:
 
     def run(self) -> None:
         while True:
-            raw_cmd = input("$ ")
-            if not raw_cmd:
-                continue
-
             try:
+                raw_cmd = input("$ ")
+                if not raw_cmd:
+                    continue
+
                 cmd = shlex.split(raw_cmd)
                 if not cmd:
                     continue
@@ -33,5 +36,12 @@ class Terminal:
                 else:
                     print("unknown command")
 
+            except (KeyboardInterrupt, EOFError):
+                if time.time() - self.confirm_time > 1:
+                    print("confirm exit pressing ctrl+c second time")
+                    self.confirm_time = time.time()
+                    continue
+
+                break
             except ValueError as e:
                 print(f"cant parse command: {e}")
