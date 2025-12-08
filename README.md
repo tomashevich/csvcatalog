@@ -1,5 +1,5 @@
 # catalog
-### tool for creating catalog from .csv tables into duckdb/sqlite storage
+### tool for creating catalog from .csv tables in duckdb/sqlite storage
 
 
 ---
