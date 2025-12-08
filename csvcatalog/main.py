@@ -1,9 +1,9 @@
 import os
 
-from src.cmd.command import Command
-from src.cmd.terminal import Terminal
-from src.extractor.extractor import Extractor
-from src.saver.saver import Saver
+from command import Command
+from extractor import Extractor
+from saver import Saver
+from terminal import Terminal
 
 
 def main():

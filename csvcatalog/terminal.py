@@ -2,7 +2,7 @@ import readline as _FOR_TERMINAL_HISTORY  # noqa: F401
 import shlex
 import time
 
-from .command import Command
+from command import Command
 
 
 class Terminal:

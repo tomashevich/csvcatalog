@@ -1,9 +1,8 @@
 import os
 
+from command import Command
+from saver import Saver
 from tabulate import tabulate
-
-from src.cmd.command import Command
-from src.saver.saver import Saver
 
 
 class Extractor:

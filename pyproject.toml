@@ -1,9 +1,16 @@
+[build-system]
+requires = ["setuptools>=61.0.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "catalog"
-version = "0.1.0"
-description = "Add your description here"
+name = "csvcatalog"
+version = "1.0"
+description = "tool for creating catalog from .csv tables in duckdb/sqlite storage"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "tabulate>=0.9.0",
 ]
+
+[project.scripts]
+"csvcatalog" = "csvcatalog.main:main"

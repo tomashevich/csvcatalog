@@ -2,7 +2,7 @@ import os
 import sqlite3
 from dataclasses import dataclass
 
-from src.cmd.command import Command
+from command import Command
 
 
 @dataclass
