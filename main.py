@@ -3,11 +3,13 @@ import os
 from src.cmd.command import Command
 from src.cmd.terminal import Terminal
 from src.extractor.extractor import Extractor
+from src.saver.saver import Saver
 
 
 def main():
-    ex = Extractor()
     terminal = Terminal()
+    saver = Saver("test.db")
+    ex = Extractor(saver)
 
     # Register all commands
     commands = [
@@ -27,6 +29,7 @@ def main():
         ),
     ]
     commands.extend(ex.commands)
+    commands.extend(saver.commands)
 
     for command in commands:
         terminal.register_command(command)

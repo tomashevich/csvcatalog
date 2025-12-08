@@ -9,7 +9,7 @@
 parse .csv file's and transform data into a format suitable for storage
 
 Set csv file to extraction
-> `extractor.file <file_to_csv>`
+> `extractor.file <path_to_csv>`
 
 Set separator in csv
 > `extractor.sep <separator>`
@@ -25,6 +25,18 @@ Start extraction process
 
 ---
 
-### Storage
+### Saver
 
 operations with data in duckdb/sqlite storage
+
+Change database file
+> `saver.database <path_to_database>`
+
+Reload database connection
+> `saver.reload`
+
+Delete table
+> `saver.delete <table_name>`
+
+Get tables list
+> `saver.tables`
