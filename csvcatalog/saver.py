@@ -52,6 +52,12 @@ class Saver:
             example="s.del.table my_table",
             aliases=["saver.delete.table"],
         )
+        registry.register(
+            "s.purge",
+            self._purge_database_command,
+            description="Clear the entire database.",
+            aliases=["saver.purge"],
+        )
 
     def set_database(self, database_path: str) -> None:
         if os.path.isdir(database_path):
@@ -88,6 +94,11 @@ class Saver:
         safe_name = self._validate_table_name(name)
         self.cur.execute(f"DROP TABLE IF EXISTS {safe_name}")
         self.con.commit()
+
+    def purge_database(self) -> None:
+        tables = self.get_tables()
+        for table in tables:
+            self.delete_table(table.name)
 
     def get_tables(self) -> list[Table]:
         if not self.con or not self.cur:
@@ -150,6 +161,13 @@ class Saver:
     def _delete_table(self, name: str) -> None:
         self.delete_table(name)
         print(f"Deleted table '{name}'.")
+
+    def _purge_database_command(self) -> None:
+        if input("Are you sure you want to clear the entire database? (y/n): ").lower().strip() == "y":
+            self.purge_database()
+            print("Database purged.")
+        else:
+            print("Purge cancelled.")
 
     def _list_tables(self) -> None:
         tables = self.get_tables()
