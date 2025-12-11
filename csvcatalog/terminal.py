@@ -2,46 +2,47 @@ import readline as _FOR_TERMINAL_HISTORY  # noqa: F401
 import shlex
 import time
 
-from command import Command
+from .registry import CommandRegistry
 
 
 class Terminal:
-    def __init__(self):
-        self.commands: dict[str, Command] = {}
-        self.confirm_time = time.time()
+    def __init__(self, registry: CommandRegistry):
+        self._registry = registry
+        self._should_exit = False
+        self._confirm_exit = False
 
-    def register_command(self, command: Command) -> None:
-        for name in command.aliases:
-            self.commands[name] = command
+    def _execute(self, raw_cmd: str) -> None:
+        if not raw_cmd:
+            return
 
-        self.commands[command.name] = command
+        try:
+            parts = shlex.split(raw_cmd)
+        except ValueError as e:
+            print(f"error: failed to parse command: {e}")
+            return
+
+        if not parts:
+            return
+
+        name, *args = parts
+        command = self._registry.get(name)
+
+        if command:
+            command.execute(*args)
+        else:
+            print(f"error: unknown command '{name}'")
 
     def run(self) -> None:
-        while True:
+        while not self._should_exit:
             try:
-                raw_cmd = input("$ ")
-                if not raw_cmd:
-                    continue
-
-                cmd = shlex.split(raw_cmd)
-                if not cmd:
-                    continue
-
-                name = cmd[0]
-                args = cmd[1:]
-
-                if self.commands.get(name, 0):
-                    self.commands[name].execute(*args)
-
-                else:
-                    print("unknown command")
-
+                raw_cmd = input("> ")
+                self._execute(raw_cmd)
+                self._confirm_exit = False
             except (KeyboardInterrupt, EOFError):
-                if time.time() - self.confirm_time > 1:
-                    print("confirm exit pressing ctrl+c second time")
+                if self._confirm_exit:
+                    self._should_exit = True
+                else:
+                    self._confirm_exit = True
+                    print("\n(Press Ctrl+C again to exit)")
                     self.confirm_time = time.time()
-                    continue
-
-                break
-            except ValueError as e:
-                print(f"cant parse command: {e}")
+        print("\nBye!")

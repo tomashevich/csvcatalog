@@ -1,28 +1,25 @@
+from dataclasses import dataclass, field
+from typing import Any, Callable
+
+
+@dataclass(frozen=True)
 class Command:
-    def __init__(
-        self,
-        name: str,
-        func,
-        description: str = "",
-        example: str = "",
-        aliases: list[str] = [],
-    ):
-        self.name = name
-        self.description = description
-        self.example = example
-        self.aliases = aliases
+    name: str
+    handler: Callable[..., Any]
+    description: str = ""
+    example: str = ""
+    aliases: tuple[str, ...] = field(default_factory=tuple)
 
-        self.handler = func
-
-    def execute(self, *args) -> None:
+    def execute(self, *args: str) -> None:
         try:
-            if len(args) == 0:
-                self.handler()
-                return
-
             self.handler(*args)
         except Exception as e:
-            print(f"error executing command '{self.name}': {e}")
+            print(f"error: failed to execute '{self.name}': {e}")
 
     def __str__(self) -> str:
-        return f"{self.name}{f': {self.description}' if self.description else ''} {'{' + self.example + '}' if self.example else ''}"
+        base = f"{self.name}"
+        if self.description:
+            base += f": {self.description}"
+        if self.example:
+            base += f" (e.g., '{self.example}')"
+        return base

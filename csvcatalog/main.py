@@ -1,39 +1,35 @@
 import os
+import sys
 
-from command import Command
-from extractor import Extractor
-from saver import Saver
-from terminal import Terminal
+from .registry import registry
+from .saver import Saver
+from .terminal import Terminal
+from .extractor import Extractor
 
 
 def main():
-    terminal = Terminal()
-    saver = Saver("test.db")
-    ex = Extractor(saver)
+    # Define and register general commands
+    def _help() -> None:
+        print("Available commands:")
+        for cmd in registry.all_commands():
+            print(f"  {cmd}")
 
-    # Register all commands
-    commands = [
-        Command(
-            "help",
-            lambda: print(
-                f"Available commands: \n   {('\n   '.join(str(cmd) for cmd in commands))}"
-            ),
-        ),
-        Command("exit", lambda: exit(0)),
-        Command("clear", lambda: os.system("clear"), aliases=["cls", "c"]),
-        Command(
-            "system",
-            lambda *cmd: os.system(" ".join(cmd)),
-            description="execute a system command",
-            example="system ls",
-        ),
-    ]
-    commands.extend(ex.commands)
-    commands.extend(saver.commands)
+    def _exit() -> None:
+        sys.exit(0)
 
-    for command in commands:
-        terminal.register_command(command)
+    def _clear() -> None:
+        os.system("cls" if os.name == "nt" else "clear")
 
+    registry.register("help", _help, description="Show all available commands.")
+    registry.register("exit", _exit, description="Exit the application.", aliases=["quit"])
+    registry.register("clear", _clear, description="Clear the screen.", aliases=["cls"])
+
+    # Initialize modules to register their commands
+    saver = Saver("catalog.db")
+    Extractor(saver)
+
+    # Run the terminal interface
+    terminal = Terminal(registry)
     terminal.run()
 
 

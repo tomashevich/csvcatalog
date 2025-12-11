@@ -1,217 +1,180 @@
 import os
-
-from command import Command
-from saver import Saver
 from tabulate import tabulate
+from .registry import registry
+from .saver import Saver
 
 
 class Extractor:
     def __init__(self, saver: Saver) -> None:
         self.file: str | None = None
         self.headers: list[str] = []
-        self.seperator: str = ","
+        self.separator: str = ","
         self.table: str = "temp"
-
         self.saver = saver
 
-        self.commands = [
-            Command(
-                "extractor",
-                self.command_help_handler,
-                description="help about extractor module",
-                aliases=["ex", "ex.help", "extractor.help"],
-            ),
-            Command(
-                "extractor.file",
-                self.command_file_handler,
-                description="set a csv file",
-                example="extractor.file data.csv",
-                aliases=["ex.file"],
-            ),
-            Command(
-                "extractor.sep",
-                self.command_sep_handler,
-                description="set a csv separator",
-                example="extractor.sep",
-                aliases=["ex.sep"],
-            ),
-            Command(
-                "extractor.headers",
-                self.command_headers_handler,
-                description="set file headers",
-                example="extractor.headers id name age",
-                aliases=["ex.headers"],
-            ),
-            Command(
-                "extractor.preview",
-                self.command_preview_handler,
-                description="preview the data",
-                example="extractor.preview",
-                aliases=["ex.preview"],
-            ),
-            Command(
-                "extractor.table",
-                self.command_table_handler,
-                description="set table name",
-                example="extractor.table users",
-                aliases=["ex.table"],
-            ),
-            Command(
-                "extractor.run",
-                self.command_run_handler,
-                description="extract data into table",
-                example="extractor.extract",
-                aliases=["ex.run", "ex.extract", "extractor.extract"],
-            ),
-        ]
+        self._register_commands()
+
+    def _register_commands(self) -> None:
+        registry.register(
+            "ex.help",
+            self._help,
+            description="Help about extractor module.",
+            aliases=["ex"],
+        )
+        registry.register(
+            "ex.file",
+            self._set_file_command,
+            description="Set a CSV file.",
+            example="ex.file data.csv",
+        )
+        registry.register(
+            "ex.sep",
+            self._set_separator_command,
+            description="Set a CSV separator.",
+            example="ex.sep ';'",
+        )
+        registry.register(
+            "ex.headers",
+            self._set_headers_command,
+            description="Set file headers.",
+            example="ex.headers id name age",
+        )
+        registry.register(
+            "ex.preview",
+            self._preview_command,
+            description="Preview the data.",
+            example="ex.preview 10",
+        )
+        registry.register(
+            "ex.table",
+            self._set_table_command,
+            description="Set table name.",
+            example="ex.table users",
+        )
+        registry.register(
+            "ex.run",
+            self._run_command,
+            description="Extract data into table.",
+            aliases=["ex.extract"],
+        )
 
     def clear_file_info(self) -> None:
         self.file = None
         self.headers = []
         self.table = "temp"
 
-    def set_headers(self, *args) -> None:
+    def set_headers(self, *headers: str) -> None:
         if self.file is None:
             raise Exception("No file set")
 
-        with open(self.file, "r", encoding="utf-8") as f:
+        with open(self.file, "r", encoding="utf-8-sig") as f:
             line = f.readline()
             if not line:
                 raise Exception("Empty file")
 
-            headers_len = len(*args)
-            required_headers_len = len(line.split(self.seperator))
-            if headers_len != required_headers_len:
+            required_len = len(line.split(self.separator))
+            if len(headers) != required_len:
                 raise Exception(
-                    f"Wrong number of headers: {headers_len}/{required_headers_len}"
+                    f"Wrong number of headers: {len(headers)}/{required_len}"
                 )
-
-        self.headers = list(*args)
+        self.headers = list(headers)
 
     def set_headers_from_file(self) -> None:
         if self.file is None:
             raise Exception("No file set")
 
-        with open(self.file, "r", encoding="utf-8") as f:
+        with open(self.file, "r", encoding="utf-8-sig") as f:
             line = f.readline()
             if not line:
                 raise Exception("Empty file")
-
-            self.headers = line.strip().split(self.seperator)
+            self.headers = line.strip().split(self.separator)
 
     def set_file(self, file_path: str) -> None:
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found: '{file_path}'")
-
         if os.path.isdir(file_path):
             raise IsADirectoryError(f"Not a file: '{file_path}'")
-
         if not file_path.endswith(".csv"):
-            print(f"warning: {file_path} file is not with csv extension")
-
+            print(f"warning: {file_path} is not a .csv file")
         self.file = file_path
 
-    def preview(self, count: int = 5) -> str:
+    def preview(self, count: int = 5) -> None:
         if self.file is None:
             raise Exception("no file set")
 
-        with open(self.file, "r", encoding="utf-8") as f:
-            lines = []
-            for i in range(count):
-                line = f.readline()
-                if not line:
-                    break  # end of file
+        with open(self.file, "r", encoding="utf-8-sig") as f:
+            lines = [
+                line.strip().split(self.separator)
+                for i, line in enumerate(f)
+                if i < count
+            ]
+        print(tabulate(lines, headers=self.headers, tablefmt="grid"))
 
-                lines.append(line.split(self.seperator))
-
-            print(tabulate(lines, headers=self.headers, tablefmt="grid"))
-
-    # ---
-    # Commands
-    # ---
-
-    def command_help_handler(self) -> None:
+    def _help(self) -> None:
         print(
-            f"""Extractor help:
-  Extractor using as a command-line tool to extract data from csv files.
-  Working with Saver module ('saver.help').
-
-Current vars:
-  ex.file: {self.file}
-  ex.headers: {self.headers}
-  ex.sep: {self.seperator}
-  ex.table: {self.table}
-
-How to use:
-  1st: 'ex.file <path-to-file.csv>' set file
-  2nd: 'ex.sep <separator>' set separator (',' by default)
-  3rd: 'ex.run' start extracting data and saving it line by line
-            """
+            "Extractor: A tool to extract data from CSV files.\n"
+            "Works with the Saver module ('s.help').\n\n"
+            "Current configuration:\n"
+            f"  - File: {self.file}\n"
+            f"  - Headers: {self.headers}\n"
+            f"  - Separator: '{self.separator}'\n"
+            f"  - Target Table: {self.table}\n\n"
+            "Usage:\n"
+            "  1. 'ex.file <path-to-file.csv>' - Set the source file.\n"
+            "  2. 'ex.sep <separator>' - (Optional) Set the field separator.\n"
+            "  3. 'ex.run' - Start extracting and saving the data.\n"
         )
         print("Available extractor commands:")
-        for command in self.commands:
-            print(f"  {command}")
+        for command in registry.all_commands():
+            if command.name.startswith("ex"):
+                print(f"  {command}")
 
-    def command_sep_handler(self, *args) -> None:
-        self.seperator = args[0]
+    def _set_separator_command(self, sep: str) -> None:
+        self.separator = sep
         self.set_headers_from_file()
-        print(f"setted separator to '{self.seperator}'")
+        print(f"Set separator to '{self.separator}'")
 
-    def command_file_handler(self, *args) -> None:
+    def _set_file_command(self, file_path: str) -> None:
         self.clear_file_info()
-
-        self.set_file(args[0])
+        self.set_file(file_path)
         self.set_headers_from_file()
-        self.table = str(os.path.splitext(os.path.basename(self.file))[0]).strip()
+        self.table = os.path.splitext(os.path.basename(file_path))[0].strip()
+        print(f"Set file to {file_path}")
 
-        print(f"setted file {args[0]}")
+    def _set_headers_command(self, *headers: str) -> None:
+        self.set_headers(*headers)
+        print(f"Set headers to: {' '.join(self.headers)}")
 
-    def command_headers_handler(self, *args) -> None:
-        self.set_headers(args)
-        print(f"setted headers to {' '.join(self.headers)}")
+    def _preview_command(self, count_str: str = "5") -> None:
+        self.preview(int(count_str))
 
-    def command_preview_handler(self, *args) -> None:
-        count = 5
-        if len(args) > 0:
-            if args[0].isdigit():
-                count = int(args[0])
+    def _set_table_command(self, name: str) -> None:
+        self.table = name.strip()
+        print(f"Set table name to '{self.table}'")
 
-        self.preview(count)
-
-    def command_table_handler(self, *args) -> None:
-        self.table = args[0].strip()
-        print(f"setted table name to '{self.table}'")
-
-    def command_run_handler(self) -> None:
+    def _run_command(self) -> None:
         if self.file is None:
             raise Exception("no file set")
 
         self.saver.create_table(self.table, self.headers)
-
-        print("check before run:")
+        print("Preview before running:")
         self.preview(2)
-        print(f"extract data in '{self.table}' table")
+        print(f"This will extract data into the '{self.table}' table.")
 
-        if input("continue? (y/n): ").lower().startswith("n"):
+        if input("Continue? (y/n): ").lower().strip() != "y":
+            print("Aborted.")
             return
 
-        with open(self.file, "r", encoding="utf-8") as f:
+        with open(self.file, "r", encoding="utf-8-sig") as f:
+            f.readline()  # Skip header row
             values = []
-            headers_len = len(self.headers)
             for line in f:
-                if not line:
-                    break  # end of file
-
-                parts = line.split(self.seperator)
-                if len(parts) != headers_len:
+                if not line.strip():
                     continue
+                parts = line.strip().split(self.separator)
+                if len(parts) == len(self.headers):
+                    values.append(dict(zip(self.headers, parts)))
 
-                value = {header: value for header, value in zip(self.headers, parts)}
-                values.append(value)
-
-            self.saver.save(
-                self.table,
-                values,
-            )
-
-        print("extraction completed!")
+            if values:
+                self.saver.save(self.table, values)
+        print("Extraction complete!")

@@ -1,8 +1,7 @@
 import os
 import sqlite3
 from dataclasses import dataclass
-
-from command import Command
+from .registry import registry
 
 
 @dataclass
@@ -12,149 +11,153 @@ class Table:
     count: int
 
 
-# warning: can be a sql injection attack. but we cant use placeholders for table names in query
 class Saver:
     def __init__(self, database_path: str):
         self.con: sqlite3.Connection | None = None
         self.cur: sqlite3.Cursor | None = None
         self.database_file: str = ""
         self.set_database(database_path)
+        self._register_commands()
 
-        self.commands = [
-            Command(
-                "saver.help",
-                self.command_help_handler,
-                description="display help",
-                aliases=["s.help"],
-            ),
-            Command(
-                "saver.reload",
-                self.command_reload_handler,
-                description="reload database connection",
-                aliases=["s.reload"],
-            ),
-            Command(
-                "saver.tables",
-                self.command_tables_handler,
-                description="list all tables in database",
-                aliases=["s.tables"],
-            ),
-            Command(
-                "saver.database",
-                self.command_database_handler,
-                description="set database file",
-                example="s.db /path/to/database.db",
-                aliases=["s.database", "s.db"],
-            ),
-            Command(
-                "saver.delete.table",
-                self.command_delete_table_handler,
-                description="delete a table",
-                example="s.del.table table_name",
-                aliases=["s.delete.table", "s.del.table"],
-            ),
-        ]
+    def _register_commands(self) -> None:
+        registry.register(
+            "s.help",
+            self._help,
+            description="Display saver help.",
+            aliases=["saver.help"],
+        )
+        registry.register(
+            "s.reload",
+            self._reload,
+            description="Reload database connection.",
+            aliases=["saver.reload"],
+        )
+        registry.register(
+            "s.tables",
+            self._list_tables,
+            description="List all tables in the database.",
+            aliases=["saver.tables"],
+        )
+        registry.register(
+            "s.db",
+            self._set_database,
+            description="Set database file.",
+            example="s.db /path/to/database.db",
+            aliases=["saver.database"],
+        )
+        registry.register(
+            "s.del.table",
+            self._delete_table,
+            description="Delete a table.",
+            example="s.del.table my_table",
+            aliases=["saver.delete.table"],
+        )
 
     def set_database(self, database_path: str) -> None:
         if os.path.isdir(database_path):
-            raise IsADirectoryError(f"Database file '{database_path}' is a directory")
+            raise IsADirectoryError(f"Database path '{database_path}' is a directory.")
 
-        if not os.path.exists(database_path):
-            with open(database_path, "w"):
-                pass
-
-        if self.con is not None or self.cur is not None:
-            self.cur.close()
+        if self.con:
             self.con.close()
 
         self.database_file = database_path
-
-        self.con = sqlite3.connect(self.database_file)
+        self.con = sqlite3.connect(database_path)
         self.cur = self.con.cursor()
 
-    def create_table(self, name: str, columns: list[str]) -> None:
-        if self.con is None or self.cur is None:
-            raise Exception("Database file not opened")
+    def _validate_table_name(self, name: str) -> str:
+        cleaned_name = ''.join(c for c in name if c.isidentifier() or c in '_').lstrip('_')
+        if not cleaned_name.isidentifier():
+            raise ValueError(f"Invalid table name: '{name}'")
+        return cleaned_name
 
-        self.cur.execute(f"CREATE TABLE IF NOT EXISTS {name} ({', '.join(columns)})")
-        res = self.cur.execute(f"SELECT name FROM sqlite_master WHERE name='{name}'")
-        if res.fetchone() is None:
-            raise Exception("Table creation failed")
+    def create_table(self, name: str, columns: list[str]) -> None:
+        if not self.con or not self.cur:
+            raise sqlite3.OperationalError("Database connection is not available.")
+
+        safe_name = self._validate_table_name(name)
+        safe_columns = [self._validate_table_name(c) for c in columns]
+
+        query = f"CREATE TABLE IF NOT EXISTS {safe_name} ({', '.join(f'{c} TEXT' for c in safe_columns)})"
+        self.cur.execute(query)
+        self.con.commit()
 
     def delete_table(self, name: str) -> None:
-        self.cur.execute(f"DROP TABLE IF EXISTS {name}")
+        if not self.con or not self.cur:
+            raise sqlite3.OperationalError("Database connection is not available.")
+
+        safe_name = self._validate_table_name(name)
+        self.cur.execute(f"DROP TABLE IF EXISTS {safe_name}")
         self.con.commit()
 
     def get_tables(self) -> list[Table]:
-        if self.con is None or self.cur is None:
-            raise Exception("Database file not opened")
+        if not self.con or not self.cur:
+            raise sqlite3.OperationalError("Database connection is not available.")
 
-        res = self.cur.execute(
+        self.cur.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
         )
-        tables = [row[0] for row in res.fetchall()]
+        table_names = [row[0] for row in self.cur.fetchall()]
 
-        table_info = []
-        for table_name in tables:
-            self.cur.execute(f"PRAGMA table_info('{table_name}');")
+        tables = []
+        for name in table_names:
+            safe_name = self._validate_table_name(name)
+            self.cur.execute(f"PRAGMA table_info({safe_name})")
             columns = [col[1] for col in self.cur.fetchall()]
 
-            res = self.cur.execute(f"SELECT COUNT(*) FROM {table_name}")
-            count = res.fetchone()[0]
+            self.cur.execute(f"SELECT COUNT(*) FROM {safe_name}")
+            count = self.cur.fetchone()[0]
+            tables.append(Table(name, columns, count))
 
-            table_info.append(Table(table_name, columns, count))
-
-        return table_info
+        return tables
 
     def save(self, table: str, data: list[dict[str, any]]) -> None:
-        if self.con is None or self.cur is None:
-            raise Exception("Database file not opened")
-
-        columns = list(data[0].keys())
-        placeholders = ", ".join(["?"] * len(columns))
-        values = [tuple(row.values()) for row in data]
-
-        self.cur.executemany(
-            f"INSERT INTO {table} ({', '.join(columns)}) VALUES ({placeholders})",
-            values,
-        )
-        self.con.commit()
-
-    #
-    # Commands
-    #
-    def command_help_handler(self) -> None:
-        print(
-            f"""Saver help:
-  Setup your database connections. View, edit, delete data inside.
-
-Current vars:
-  ex.database: {self.database_file}
-            """
-        )
-        print("Available extractor commands:")
-        for command in self.commands:
-            print(f"  {command}")
-
-    def command_reload_handler(self) -> None:
-        self.set_database(self.database_file)
-        print("reloaded!")
-
-    def command_database_handler(self, *args) -> None:
-        self.set_database(args[0])
-        print(f"database file set to '{args[0]}'")
-
-    def command_delete_table_handler(self, *args) -> None:
-        self.delete_table(args[0])
-        print(f"deleted '{args[0]}' table")
-
-    def command_tables_handler(self) -> None:
-        tables = self.get_tables()
-        tables_len = len(tables)
-        if tables_len == 0:
-            print("no tables found")
+        if not data:
             return
 
-        print(f"{tables_len} tables:")
+        if not self.con or not self.cur:
+            raise sqlite3.OperationalError("Database connection is not available.")
+
+        safe_table = self._validate_table_name(table)
+        columns = list(data[0].keys())
+        safe_columns = [self._validate_table_name(c) for c in columns]
+
+        placeholders = ", ".join(["?"] * len(safe_columns))
+        query = f"INSERT INTO {safe_table} ({', '.join(safe_columns)}) VALUES ({placeholders})"
+
+        values = [tuple(row.values()) for row in data]
+        self.cur.executemany(query, values)
+        self.con.commit()
+
+    def _help(self) -> None:
+        print(
+            "Saver: Manages the database connection and data.\n\n"
+            "Current configuration:\n"
+            f"  - Database: {self.database_file}\n"
+        )
+        print("Available saver commands:")
+        for command in registry.all_commands():
+            if command.name.startswith("s."):
+                print(f"  {command}")
+
+    def _reload(self) -> None:
+        self.set_database(self.database_file)
+        print("Database connection reloaded.")
+
+    def _set_database(self, path: str) -> None:
+        self.set_database(path)
+        print(f"Database file set to '{path}'")
+
+    def _delete_table(self, name: str) -> None:
+        self.delete_table(name)
+        print(f"Deleted table '{name}'.")
+
+    def _list_tables(self) -> None:
+        tables = self.get_tables()
+        if not tables:
+            print("No tables found.")
+            return
+
+        print(f"{len(tables)} tables found:")
         for table in tables:
-            print(f"  {table.name} ({', '.join(table.columns)}): {table.count} rows")
+            cols = ", ".join(table.columns)
+            print(f"  - {table.name} ({cols}): {table.count} rows")
