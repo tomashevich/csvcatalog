@@ -12,3 +12,4 @@ wheels/
 # test
 test.csv
 test.db
+catalog.db

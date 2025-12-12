@@ -1,7 +1,10 @@
+import csv
 import os
 import sqlite3
 from dataclasses import dataclass
+
 from .registry import registry
+from .selector import select_options
 
 
 @dataclass
@@ -58,6 +61,13 @@ class Saver:
             description="Clear the entire database.",
             aliases=["saver.purge"],
         )
+        registry.register(
+            "s.export",
+            self._export_table,
+            description="Export a table to a CSV file.",
+            example="s.export my_table",
+            aliases=["saver.export"],
+        )
 
     def set_database(self, database_path: str) -> None:
         if os.path.isdir(database_path):
@@ -71,8 +81,8 @@ class Saver:
         self.cur = self.con.cursor()
 
     def _validate_table_name(self, name: str) -> str:
-        cleaned_name = ''.join(c for c in name if c.isidentifier() or c in '_').lstrip('_')
-        if not cleaned_name.isidentifier():
+        cleaned_name = "".join(c for c in name if c.isidentifier()).lstrip("_")
+        if not cleaned_name or not cleaned_name.isidentifier():
             raise ValueError(f"Invalid table name: '{name}'")
         return cleaned_name
 
@@ -163,7 +173,12 @@ class Saver:
         print(f"Deleted table '{name}'.")
 
     def _purge_database_command(self) -> None:
-        if input("Are you sure you want to clear the entire database? (y/n): ").lower().strip() == "y":
+        if (
+            input("Are you sure you want to clear the entire database? (y/n): ")
+            .lower()
+            .strip()
+            == "y"
+        ):
             self.purge_database()
             print("Database purged.")
         else:
@@ -179,3 +194,74 @@ class Saver:
         for table in tables:
             cols = ", ".join(table.columns)
             print(f"  - {table.name} ({cols}): {table.count} rows")
+
+    def _export_table(self, table_name: str) -> None:
+        if not self.con or not self.cur:
+            raise sqlite3.OperationalError("Database connection is not available.")
+
+        table = next((t for t in self.get_tables() if t.name == table_name), None)
+        if not table:
+            print(f"error: table '{table_name}' not found.")
+            return
+
+        selected_columns = select_options(
+            table.columns, title=f"Select columns to export from '{table_name}':"
+        )
+
+        if not selected_columns:
+            print("Export cancelled: no columns selected.")
+            return
+
+        while True:
+            prompt = (
+                f"How many rows to export? (all/{table.count}, or 'cancel'): "
+            )
+            limit_str = input(prompt).strip().lower()
+
+            if limit_str in ("cancel", "c"):
+                print("Export cancelled.")
+                return
+
+            if limit_str == "all" or limit_str == "":
+                limit = -1
+                break
+            try:
+                limit = int(limit_str)
+                if limit < 0:
+                    raise ValueError
+                break
+            except ValueError:
+                print(
+                    "Invalid input. Please enter a positive number, 'all', or 'cancel'."
+                )
+        
+        default_filename = f"{table_name}.csv"
+        filename_prompt = f"Enter filename for export (default: {default_filename}): "
+        output_filename = input(filename_prompt).strip()
+        if not output_filename:
+            output_filename = default_filename
+        
+        if not output_filename.lower().endswith(".csv"):
+            output_filename += ".csv"
+
+        safe_table_name = self._validate_table_name(table_name)
+        safe_columns = [self._validate_table_name(c) for c in selected_columns]
+        columns_str = ", ".join(safe_columns)
+
+        query = f"SELECT {columns_str} FROM {safe_table_name}"
+        if limit != -1:
+            query += f" LIMIT {limit}"
+
+        self.cur.execute(query)
+
+        try:
+            with open(output_filename, "w", newline="", encoding="utf-8") as csvfile:
+                csv_writer = csv.writer(csvfile)
+                csv_writer.writerow(selected_columns)
+                csv_writer.writerows(self.cur.fetchall())
+
+            row_count_str = "all" if limit == -1 else str(limit)
+            print(f"Successfully exported {row_count_str} rows to '{output_filename}'")
+
+        except IOError as e:
+            print(f"error: Could not write to file '{output_filename}': {e}")
