@@ -4,39 +4,45 @@
 
 ---
 
-## Extractor
+## file
 
 parse .csv file's and transform data into a format suitable for storage
 
 Set csv file to extraction
-> `extractor.file <path_to_csv>`
+> `file.set <path_to_csv>`
 
 Set separator in csv
-> `extractor.sep <separator>`
+> `file.sep <separator>`
 
 Edit default headers
-> `extractor.headers <header> <header> <...>`
+> `file.headers <header> <header> <...>`
 
 Preview the file
-> `extractor.preview`
+> `file.preview`
 
 Start extraction process
-> `extractor.run`
+> `file.run`
 
 ---
 
-### Saver
+### storage
 
 operations with data in duckdb/sqlite storage
 
 Change database file
-> `saver.database <path_to_database>`
+> `storage.database <path_to_database>`
 
 Reload database connection
-> `saver.reload`
+> `storage.reload`
 
 Delete table
-> `saver.delete <table_name>`
+> `storage.delete <table_name>`
 
 Get tables list
-> `saver.tables`
+> `storage.tables`
+
+Purge tables
+> `storage.purge`
+
+Export tables
+> `storage.export <table_name>`
