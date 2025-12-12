@@ -14,7 +14,7 @@ class Table:
     count: int
 
 
-class Saver:
+class Storage:
     def __init__(self, database_path: str):
         self.con: sqlite3.Connection | None = None
         self.cur: sqlite3.Cursor | None = None
@@ -24,49 +24,49 @@ class Saver:
 
     def _register_commands(self) -> None:
         registry.register(
-            "s.help",
+            "storage.help",
             self._help,
-            description="Display saver help.",
-            aliases=["saver.help"],
+            description="Display storage help.",
+            aliases=["s.help"],
         )
         registry.register(
-            "s.reload",
+            "storage.reload",
             self._reload,
             description="Reload database connection.",
-            aliases=["saver.reload"],
+            aliases=["s.reload"],
         )
         registry.register(
-            "s.tables",
+            "storage.tables",
             self._list_tables,
             description="List all tables in the database.",
-            aliases=["saver.tables"],
+            aliases=["s.tables"],
         )
         registry.register(
-            "s.db",
+            "storage.db",
             self._set_database,
             description="Set database file.",
-            example="s.db /path/to/database.db",
-            aliases=["saver.database"],
+            example="storage.db /path/to/database.db",
+            aliases=["s.db"],
         )
         registry.register(
-            "s.del.table",
+            "storage.del.table",
             self._delete_table,
             description="Delete a table.",
-            example="s.del.table my_table",
-            aliases=["saver.delete.table"],
+            example="storage.del.table my_table",
+            aliases=["s.del.table"],
         )
         registry.register(
-            "s.purge",
+            "storage.purge",
             self._purge_database_command,
             description="Clear the entire database.",
-            aliases=["saver.purge"],
+            aliases=["s.purge"],
         )
         registry.register(
-            "s.export",
+            "storage.export",
             self._export_table,
             description="Export a table to a CSV file.",
-            example="s.export my_table",
-            aliases=["saver.export"],
+            example="storage.export my_table",
+            aliases=["s.export"],
         )
 
     def set_database(self, database_path: str) -> None:
@@ -151,13 +151,13 @@ class Saver:
 
     def _help(self) -> None:
         print(
-            "Saver: Manages the database connection and data.\n\n"
+            "Storage: Manages the database connection and data.\n\n"
             "Current configuration:\n"
             f"  - Database: {self.database_file}\n"
         )
-        print("Available saver commands:")
+        print("Available storage commands:")
         for command in registry.all_commands():
-            if command.name.startswith("s."):
+            if command.name.startswith("storage."):
                 print(f"  {command}")
 
     def _reload(self) -> None:
@@ -213,9 +213,7 @@ class Saver:
             return
 
         while True:
-            prompt = (
-                f"How many rows to export? (all/{table.count}, or 'cancel'): "
-            )
+            prompt = f"How many rows to export? (all/{table.count}, or 'cancel'): "
             limit_str = input(prompt).strip().lower()
 
             if limit_str in ("cancel", "c"):
@@ -234,13 +232,13 @@ class Saver:
                 print(
                     "Invalid input. Please enter a positive number, 'all', or 'cancel'."
                 )
-        
+
         default_filename = f"{table_name}.csv"
         filename_prompt = f"Enter filename for export (default: {default_filename}): "
         output_filename = input(filename_prompt).strip()
         if not output_filename:
             output_filename = default_filename
-        
+
         if not output_filename.lower().endswith(".csv"):
             output_filename += ".csv"
 

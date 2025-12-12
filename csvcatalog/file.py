@@ -1,61 +1,68 @@
 import os
+
 from tabulate import tabulate
+
 from .registry import registry
-from .saver import Saver
+from .storage import Storage
 
 
-class Extractor:
-    def __init__(self, saver: Saver) -> None:
+class File:
+    def __init__(self, storage: Storage) -> None:
         self.file: str | None = None
         self.headers: list[str] = []
         self.separator: str = ","
         self.table: str = "temp"
-        self.saver = saver
+        self.storage = storage
 
         self._register_commands()
 
     def _register_commands(self) -> None:
         registry.register(
-            "ex.help",
+            "file.help",
             self._help,
-            description="Help about extractor module.",
-            aliases=["ex"],
+            description="Help about file module.",
+            aliases=["f.help"],
         )
         registry.register(
-            "ex.file",
+            "file.set",
             self._set_file_command,
             description="Set a CSV file.",
-            example="ex.file data.csv",
+            example="f.set data.csv",
+            aliases=["f.set"],
         )
         registry.register(
-            "ex.sep",
+            "file.sep",
             self._set_separator_command,
             description="Set a CSV separator.",
-            example="ex.sep ';'",
+            example="f.sep ;",
+            aliases=["f.sep"],
         )
         registry.register(
-            "ex.headers",
+            "file.headers",
             self._set_headers_command,
             description="Set file headers.",
-            example="ex.headers id name age",
+            example="f.headers id name age",
+            aliases=["f.headers"],
         )
         registry.register(
-            "ex.preview",
+            "file.preview",
             self._preview_command,
             description="Preview the data.",
-            example="ex.preview 10",
+            example="f.preview 10",
+            aliases=["f.preview"],
         )
         registry.register(
-            "ex.table",
+            "file.table",
             self._set_table_command,
             description="Set table name.",
-            example="ex.table users",
+            example="f.table users",
+            aliases=["f.table"],
         )
         registry.register(
-            "ex.run",
+            "file.run",
             self._run_command,
             description="Extract data into table.",
-            aliases=["ex.extract"],
+            aliases=["f.extract", "f.run"],
         )
 
     def clear_file_info(self) -> None:
@@ -112,21 +119,21 @@ class Extractor:
 
     def _help(self) -> None:
         print(
-            "Extractor: A tool to extract data from CSV files.\n"
-            "Works with the Saver module ('s.help').\n\n"
+            "File: A tool to extract data from CSV files.\n"
+            "Works with the Storage module ('storage.help').\n\n"
             "Current configuration:\n"
             f"  - File: {self.file}\n"
             f"  - Headers: {self.headers}\n"
             f"  - Separator: '{self.separator}'\n"
             f"  - Target Table: {self.table}\n\n"
             "Usage:\n"
-            "  1. 'ex.file <path-to-file.csv>' - Set the source file.\n"
-            "  2. 'ex.sep <separator>' - (Optional) Set the field separator.\n"
-            "  3. 'ex.run' - Start extracting and saving the data.\n"
+            "  1. 'file.set <path-to-file.csv>' - Set the source file.\n"
+            "  2. 'file.sep <separator>' - (Optional) Set the field separator.\n"
+            "  3. 'file.run' - Start extracting and saving the data.\n"
         )
-        print("Available extractor commands:")
+        print("Available file commands:")
         for command in registry.all_commands():
-            if command.name.startswith("ex"):
+            if command.name.startswith("file."):
                 print(f"  {command}")
 
     def _set_separator_command(self, sep: str) -> None:
@@ -156,7 +163,7 @@ class Extractor:
         if self.file is None:
             raise Exception("no file set")
 
-        self.saver.create_table(self.table, self.headers)
+        self.storage.create_table(self.table, self.headers)
         print("Preview before running:")
         self.preview(2)
         print(f"This will extract data into the '{self.table}' table.")
@@ -176,5 +183,5 @@ class Extractor:
                     values.append(dict(zip(self.headers, parts)))
 
             if values:
-                self.saver.save(self.table, values)
+                self.storage.save(self.table, values)
         print("Extraction complete!")

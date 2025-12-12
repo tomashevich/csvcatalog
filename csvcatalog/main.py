@@ -1,10 +1,10 @@
 import os
 import sys
 
+from .file import File
 from .registry import registry
-from .saver import Saver
+from .storage import Storage
 from .terminal import Terminal
-from .extractor import Extractor
 
 
 def main():
@@ -21,12 +21,14 @@ def main():
         os.system("cls" if os.name == "nt" else "clear")
 
     registry.register("help", _help, description="Show all available commands.")
-    registry.register("exit", _exit, description="Exit the application.", aliases=["quit"])
+    registry.register(
+        "exit", _exit, description="Exit the application.", aliases=["quit"]
+    )
     registry.register("clear", _clear, description="Clear the screen.", aliases=["cls"])
 
     # Initialize modules to register their commands
-    saver = Saver("catalog.db")
-    Extractor(saver)
+    storage = Storage("catalog.db")
+    File(storage)
 
     # Run the terminal interface
     terminal = Terminal(registry)
