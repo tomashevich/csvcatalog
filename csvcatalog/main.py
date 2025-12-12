@@ -38,11 +38,15 @@ def main():
     def _clear() -> None:
         os.system("cls" if os.name == "nt" else "clear")
 
+    def _system(*cmd) -> None:
+        os.system(" ".join(cmd))
+
     registry.register("help", _help, description="Show all available commands.")
     registry.register(
         "exit", _exit, description="Exit the application.", aliases=["quit"]
     )
     registry.register("clear", _clear, description="Clear the screen.", aliases=["cls"])
+    registry.register("system", _system, description="Run a system command.")
 
     # Initialize modules to register their commands
     storage = Storage(db_path)

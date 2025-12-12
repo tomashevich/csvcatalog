@@ -62,6 +62,12 @@ class Storage:
             aliases=["s.purge"],
         )
         registry.register(
+            "storage.sql",
+            self._execute_sql,
+            description="Execute SQL command.",
+            aliases=["s.sql"],
+        )
+        registry.register(
             "storage.export",
             self._export_table,
             description="Export a table to a CSV file.",
@@ -194,6 +200,17 @@ class Storage:
         for table in tables:
             cols = ", ".join(table.columns)
             print(f"  - {table.name} ({cols}): {table.count} rows")
+
+    def _execute_sql(self, *st) -> None:
+        if not self.con or not self.cur:
+            raise sqlite3.OperationalError("Database connection is not available.")
+
+        try:
+            self.cur.execute(" ".join(st))
+            self.con.commit()
+            print(self.cur.fetchall())
+        except sqlite3.Error as e:
+            print(f"error: {e}")
 
     def _export_table(self, table_name: str) -> None:
         if not self.con or not self.cur:
