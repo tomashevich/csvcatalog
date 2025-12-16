@@ -70,5 +70,6 @@ Standart list of commands
 *   `storage.purge`: Wipes the entire database clean
 *   `storage.sql <stmt>`: Executes a pure SQL statement on the database
 *   `storage.export <table_name>`: Exports a table to a CSV file
+*   `storage.search <value> <optional: table_name>`: Search a value in table(s)
 
 ## Contributing are welcome 🤝

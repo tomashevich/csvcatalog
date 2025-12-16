@@ -1,11 +1,13 @@
 import csv
 import os
 import sqlite3
+import time
 from dataclasses import dataclass
 
+from tabulate import tabulate
+
 from .registry import registry
-from .termutils import select_options
-from .termutils import err_print
+from .termutils import err_print, select_options
 
 
 @dataclass
@@ -27,53 +29,60 @@ class Storage:
         registry.register(
             "storage.help",
             self._help,
-            description="Display storage help.",
+            description="Display storage help",
             aliases=["s.help"],
         )
         registry.register(
             "storage.reload",
             self._reload,
-            description="Reload database connection.",
+            description="Reload database connection",
             aliases=["s.reload"],
         )
         registry.register(
             "storage.tables",
             self._list_tables,
-            description="List all tables in the database.",
+            description="List all tables in the database",
             aliases=["s.tables"],
         )
         registry.register(
             "storage.db",
             self._set_database,
-            description="Set database file.",
+            description="Set database file",
             example="storage.db /path/to/database.db",
             aliases=["s.db"],
         )
         registry.register(
             "storage.del.table",
             self._delete_table,
-            description="Delete a table.",
+            description="Delete a table",
             example="storage.del.table my_table",
             aliases=["s.del.table"],
         )
         registry.register(
             "storage.purge",
             self._purge_database_command,
-            description="Clear the entire database.",
+            description="Clear the entire database",
             aliases=["s.purge"],
         )
         registry.register(
             "storage.sql",
             self._execute_sql,
-            description="Execute SQL command.",
+            description="Execute SQL command",
             aliases=["s.sql"],
         )
         registry.register(
             "storage.export",
             self._export_table,
-            description="Export a table to a CSV file.",
+            description="Export a table to a CSV file",
             example="storage.export my_table",
             aliases=["s.export"],
+        )
+        registry.register(
+            "storage.search",
+            self._search_command,
+            description="Search for a value in a table or all tables",
+            example="storage.search 'John' users",
+            aliases=["s.search"],
         )
 
     def set_database(self, database_path: str) -> None:
@@ -155,6 +164,41 @@ class Storage:
         values = [tuple(row.values()) for row in data]
         self.cur.executemany(query, values)
         self.con.commit()
+
+    def search_data(
+        self, value: str, table_name: str | None = None
+    ) -> dict[str, list[dict]]:
+        if not self.con or not self.cur:
+            raise sqlite3.OperationalError("database connection is not available")
+
+        tables_to_search = []
+        if table_name:
+            table = next((t for t in self.get_tables() if t.name == table_name), None)
+            if not table:
+                raise ValueError(f"table '{table_name}' not found")
+            tables_to_search.append(table)
+        else:
+            tables_to_search = self.get_tables()
+
+        search_pattern = f"%{value}%"
+        all_results = {}
+
+        for table in tables_to_search:
+            if not table.columns:
+                continue
+
+            where_clause = " OR ".join(f'"{col}" LIKE ?' for col in table.columns)
+            query = f'SELECT * FROM "{table.name}" WHERE {where_clause}'
+            params = [search_pattern] * len(table.columns)
+
+            self.cur.execute(query, params)
+            rows = self.cur.fetchall()
+
+            if rows:
+                results = [dict(zip(table.columns, row)) for row in rows]
+                all_results[table.name] = results
+
+        return all_results
 
     def _help(self) -> None:
         print(
@@ -281,3 +325,29 @@ class Storage:
 
         except IOError as e:
             err_print(f"could not write to file '{output_filename}': {e}")
+
+    def _search_command(self, *args: str) -> None:
+        if not args:
+            err_print("search value cannot be empty")
+            return
+
+        value = args[0]
+        table_name = args[1] if len(args) > 1 else None
+
+        print(f"Searching for '{value}'...")
+        start_time = time.time()
+        results_by_table = self.search_data(value, table_name)
+        end_time = time.time()
+
+        total_matches = 0
+        if not results_by_table:
+            print("No matches found.")
+            return
+
+        for table, rows in results_by_table.items():
+            total_matches += len(rows)
+            print(f"\nFound {len(rows)} match(es) in table '{table}':")
+            print(tabulate(rows, headers="keys", tablefmt="grid"))
+
+        duration = end_time - start_time
+        print(f"\nFound {total_matches} total match(es) in {duration:.4f} seconds")
