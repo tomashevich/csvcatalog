@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from .termutils import err_print
+
 
 @dataclass(frozen=True)
 class Command:
@@ -14,7 +16,7 @@ class Command:
         try:
             self.handler(*args)
         except Exception as e:
-            print(f"error: failed to execute '{self.name}': {e}")
+            err_print(f"failed to execute '{self.name}': {e}")
 
     def __str__(self) -> str:
         base = f"{self.name}"

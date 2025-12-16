@@ -1,33 +1,51 @@
 import curses
+import sys
+
+
+def err_print(text: str) -> None:
+    """Prints text in red to stderr."""
+    print(f"\033[1;31merror: {text}\033[0m", file=sys.stderr)
 
 
 def select_options(options: list[str], title: str) -> list[str]:
     selected = [False] * len(options)
     current_pos = 0
 
-    def draw_menu(stdscr):
+    def draw_menu(stdscr, color_pair):
         stdscr.clear()
         h, _ = stdscr.getmaxyx()
 
         # Instructions
         instructions = "[↑ ↓] navigate  [space] toggle  [enter] confirm  [esc] cancel"
         stdscr.addstr(0, 0, title)
+        stdscr.attron(color_pair)
         stdscr.addstr(h - 1, 0, instructions)
+        stdscr.attroff(color_pair)
 
         # Options rendering starts from line 2
         for i, option in enumerate(options):
             if (i + 2) >= (h - 1):  # Check against available height
                 break
 
-            prefix = "[x] " if selected[i] else "[ ] "
-            display_str = f"{prefix}{option}"
+            display_str = option
+            if selected[i]:
+                stdscr.attron(color_pair)
+                stdscr.addstr(i + 2, 0, "[x] ")
+                stdscr.attroff(color_pair)
+                stdscr.addstr(i + 2, 4, display_str)
+            else:
+                stdscr.addstr(i + 2, 0, f"[ ] {display_str}")
 
             if i == current_pos:
                 stdscr.attron(curses.A_REVERSE)
-                stdscr.addstr(i + 2, 0, display_str)
+                if selected[i]:
+                    stdscr.attron(color_pair)
+                    stdscr.addstr(i + 2, 0, "[x] ")
+                    stdscr.attroff(color_pair)
+                    stdscr.addstr(i + 2, 4, display_str)
+                else:
+                    stdscr.addstr(i + 2, 0, f"[ ] {display_str}")
                 stdscr.attroff(curses.A_REVERSE)
-            else:
-                stdscr.addstr(i + 2, 0, display_str)
 
         stdscr.refresh()
 
@@ -36,8 +54,13 @@ def select_options(options: list[str], title: str) -> list[str]:
         curses.curs_set(0)
         stdscr.keypad(True)
 
+        # Initialize color
+        curses.start_color()
+        curses.init_pair(1, curses.COLOR_CYAN, curses.COLOR_BLACK)
+        color_pair = curses.color_pair(1)
+
         while True:
-            draw_menu(stdscr)
+            draw_menu(stdscr, color_pair)
             key = stdscr.getch()
 
             if key == curses.KEY_UP:
@@ -75,5 +98,4 @@ if __name__ == "__main__":
                 print(f"- {opt}")
 
     except Exception as e:
-        print(f"An error occurred: {e}")
-        print("this test requires a terminal that supports curses")
+        err_print(f"{e}, this test requires a terminal that supports curses")

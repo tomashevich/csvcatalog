@@ -4,7 +4,8 @@ import sqlite3
 from dataclasses import dataclass
 
 from .registry import registry
-from .selector import select_options
+from .termutils import select_options
+from .termutils import err_print
 
 
 @dataclass
@@ -193,7 +194,7 @@ class Storage:
     def _list_tables(self) -> None:
         tables = self.get_tables()
         if not tables:
-            print("no tables found")
+            err_print("no tables found")
             return
 
         print(f"{len(tables)} tables found:")
@@ -210,7 +211,7 @@ class Storage:
             self.con.commit()
             print(self.cur.fetchall())
         except sqlite3.Error as e:
-            print(f"error: {e}")
+            err_print(str(e))
 
     def _export_table(self, table_name: str) -> None:
         if not self.con or not self.cur:
@@ -218,7 +219,7 @@ class Storage:
 
         table = next((t for t in self.get_tables() if t.name == table_name), None)
         if not table:
-            print(f"error: table '{table_name}' not found")
+            err_print(f"table '{table_name}' not found")
             return
 
         selected_columns = select_options(
@@ -226,7 +227,7 @@ class Storage:
         )
 
         if not selected_columns:
-            print("export cancelled: no columns selected")
+            err_print("export cancelled: no columns selected")
             return
 
         while True:
@@ -234,7 +235,7 @@ class Storage:
             limit_str = input(prompt).strip().lower()
 
             if limit_str in ("cancel", "c"):
-                print("export cancelled")
+                err_print("export cancelled")
                 return
 
             if limit_str == "all" or limit_str == "":
@@ -246,7 +247,7 @@ class Storage:
                     raise ValueError
                 break
             except ValueError:
-                print(
+                err_print(
                     "invalid input. please enter a positive number, 'all', or 'cancel'"
                 )
 
@@ -279,4 +280,4 @@ class Storage:
             print(f"successfully exported {row_count_str} rows to '{output_filename}'")
 
         except IOError as e:
-            print(f"error: could not write to file '{output_filename}': {e}")
+            err_print(f"could not write to file '{output_filename}': {e}")

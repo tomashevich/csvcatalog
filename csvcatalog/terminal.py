@@ -3,6 +3,7 @@ import shlex
 import time
 
 from .registry import CommandRegistry
+from .termutils import err_print
 
 
 class Terminal:
@@ -18,7 +19,7 @@ class Terminal:
         try:
             parts = shlex.split(raw_cmd)
         except ValueError as e:
-            print(f"error: failed to parse command: {e}")
+            err_print(f"failed to parse command: {e}")
             return
 
         if not parts:
@@ -30,7 +31,7 @@ class Terminal:
         if command:
             command.execute(*args)
         else:
-            print(f"error: unknown command '{name}'")
+            err_print(f"unknown command '{name}'")
 
     def run(self) -> None:
         while not self._should_exit:

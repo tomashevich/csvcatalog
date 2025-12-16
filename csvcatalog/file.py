@@ -4,6 +4,7 @@ from tabulate import tabulate
 
 from .registry import registry
 from .storage import Storage
+from .termutils import err_print
 
 
 class File:
@@ -102,7 +103,7 @@ class File:
         if os.path.isdir(file_path):
             raise IsADirectoryError(f"not a file: '{file_path}'")
         if not file_path.endswith(".csv"):
-            print(f"warning: {file_path} is not a .csv file")
+            err_print(f"{file_path} is not a .csv file")
         self.file = file_path
 
     def preview(self, count: int = 5) -> None:
@@ -127,9 +128,9 @@ class File:
             f"  - Separator: '{self.separator}'\n"
             f"  - Target Table: {self.table}\n\n"
             "Usage:\n"
-            "  1. 'file.set <path-to-file.csv>' - Set the source file.\n"
-            "  2. 'file.sep <separator>' - (Optional) Set the field separator.\n"
-            "  3. 'file.run' - Start extracting and saving the data.\n"
+            "  1. 'file.set <path-to-file.csv>' - Set the source file\n"
+            "  2. 'file.sep <separator>' - (Optional) Set the field separator\n"
+            "  3. 'file.run' - Start extracting and saving the data\n"
         )
         print("Available file commands:")
         for command in registry.all_commands():
