@@ -77,7 +77,7 @@ class Storage:
 
     def set_database(self, database_path: str) -> None:
         if os.path.isdir(database_path):
-            raise IsADirectoryError(f"Database path '{database_path}' is a directory.")
+            raise IsADirectoryError(f"database path '{database_path}' is a directory")
 
         if self.con:
             self.con.close()
@@ -89,12 +89,12 @@ class Storage:
     def _validate_table_name(self, name: str) -> str:
         cleaned_name = "".join(c for c in name if c.isidentifier()).lstrip("_")
         if not cleaned_name or not cleaned_name.isidentifier():
-            raise ValueError(f"Invalid table name: '{name}'")
+            raise ValueError(f"invalid table name: '{name}'")
         return cleaned_name
 
     def create_table(self, name: str, columns: list[str]) -> None:
         if not self.con or not self.cur:
-            raise sqlite3.OperationalError("Database connection is not available.")
+            raise sqlite3.OperationalError("database connection is not available")
 
         safe_name = self._validate_table_name(name)
         safe_columns = [self._validate_table_name(c) for c in columns]
@@ -105,7 +105,7 @@ class Storage:
 
     def delete_table(self, name: str) -> None:
         if not self.con or not self.cur:
-            raise sqlite3.OperationalError("Database connection is not available.")
+            raise sqlite3.OperationalError("database connection is not available")
 
         safe_name = self._validate_table_name(name)
         self.cur.execute(f"DROP TABLE IF EXISTS {safe_name}")
@@ -118,7 +118,7 @@ class Storage:
 
     def get_tables(self) -> list[Table]:
         if not self.con or not self.cur:
-            raise sqlite3.OperationalError("Database connection is not available.")
+            raise sqlite3.OperationalError("database connection is not available")
 
         self.cur.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
@@ -142,7 +142,7 @@ class Storage:
             return
 
         if not self.con or not self.cur:
-            raise sqlite3.OperationalError("Database connection is not available.")
+            raise sqlite3.OperationalError("database connection is not available")
 
         safe_table = self._validate_table_name(table)
         columns = list(data[0].keys())
@@ -168,7 +168,7 @@ class Storage:
 
     def _reload(self) -> None:
         self.set_database(self.database_file)
-        print("Database connection reloaded.")
+        print("database connection reloaded")
 
     def _set_database(self, path: str) -> None:
         self.set_database(path)
@@ -176,7 +176,7 @@ class Storage:
 
     def _delete_table(self, name: str) -> None:
         self.delete_table(name)
-        print(f"Deleted table '{name}'.")
+        print(f"deleted table '{name}'")
 
     def _purge_database_command(self) -> None:
         if (
@@ -186,14 +186,14 @@ class Storage:
             == "y"
         ):
             self.purge_database()
-            print("Database purged.")
+            print("database purged")
         else:
-            print("Purge cancelled.")
+            print("purge cancelled")
 
     def _list_tables(self) -> None:
         tables = self.get_tables()
         if not tables:
-            print("No tables found.")
+            print("no tables found")
             return
 
         print(f"{len(tables)} tables found:")
@@ -203,7 +203,7 @@ class Storage:
 
     def _execute_sql(self, *st) -> None:
         if not self.con or not self.cur:
-            raise sqlite3.OperationalError("Database connection is not available.")
+            raise sqlite3.OperationalError("database connection is not available")
 
         try:
             self.cur.execute(" ".join(st))
@@ -214,11 +214,11 @@ class Storage:
 
     def _export_table(self, table_name: str) -> None:
         if not self.con or not self.cur:
-            raise sqlite3.OperationalError("Database connection is not available.")
+            raise sqlite3.OperationalError("database connection is not available")
 
         table = next((t for t in self.get_tables() if t.name == table_name), None)
         if not table:
-            print(f"error: table '{table_name}' not found.")
+            print(f"error: table '{table_name}' not found")
             return
 
         selected_columns = select_options(
@@ -226,7 +226,7 @@ class Storage:
         )
 
         if not selected_columns:
-            print("Export cancelled: no columns selected.")
+            print("export cancelled: no columns selected")
             return
 
         while True:
@@ -234,7 +234,7 @@ class Storage:
             limit_str = input(prompt).strip().lower()
 
             if limit_str in ("cancel", "c"):
-                print("Export cancelled.")
+                print("export cancelled")
                 return
 
             if limit_str == "all" or limit_str == "":
@@ -247,7 +247,7 @@ class Storage:
                 break
             except ValueError:
                 print(
-                    "Invalid input. Please enter a positive number, 'all', or 'cancel'."
+                    "invalid input. please enter a positive number, 'all', or 'cancel'"
                 )
 
         default_filename = f"{table_name}.csv"
@@ -276,7 +276,7 @@ class Storage:
                 csv_writer.writerows(self.cur.fetchall())
 
             row_count_str = "all" if limit == -1 else str(limit)
-            print(f"Successfully exported {row_count_str} rows to '{output_filename}'")
+            print(f"successfully exported {row_count_str} rows to '{output_filename}'")
 
         except IOError as e:
-            print(f"error: Could not write to file '{output_filename}': {e}")
+            print(f"error: could not write to file '{output_filename}': {e}")

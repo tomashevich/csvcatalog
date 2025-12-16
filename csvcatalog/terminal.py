@@ -43,6 +43,6 @@ class Terminal:
                     self._should_exit = True
                 else:
                     self._confirm_exit = True
-                    print("\n(Press Ctrl+C again to exit)")
+                    print("\n(press ctrl+c again to exit)")
                     self.confirm_time = time.time()
-        print("\nBye!")
+        print("\nbye")

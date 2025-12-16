@@ -72,35 +72,35 @@ class File:
 
     def set_headers(self, *headers: str) -> None:
         if self.file is None:
-            raise Exception("No file set")
+            raise Exception("no file set")
 
         with open(self.file, "r", encoding="utf-8-sig") as f:
             line = f.readline()
             if not line:
-                raise Exception("Empty file")
+                raise Exception("empty file")
 
             required_len = len(line.split(self.separator))
             if len(headers) != required_len:
                 raise Exception(
-                    f"Wrong number of headers: {len(headers)}/{required_len}"
+                    f"wrong number of headers: {len(headers)}/{required_len}"
                 )
         self.headers = list(headers)
 
     def set_headers_from_file(self) -> None:
         if self.file is None:
-            raise Exception("No file set")
+            raise Exception("no file set")
 
         with open(self.file, "r", encoding="utf-8-sig") as f:
             line = f.readline()
             if not line:
-                raise Exception("Empty file")
+                raise Exception("empty file")
             self.headers = line.strip().split(self.separator)
 
     def set_file(self, file_path: str) -> None:
         if not os.path.exists(file_path):
-            raise FileNotFoundError(f"File not found: '{file_path}'")
+            raise FileNotFoundError(f"file not found: '{file_path}'")
         if os.path.isdir(file_path):
-            raise IsADirectoryError(f"Not a file: '{file_path}'")
+            raise IsADirectoryError(f"not a file: '{file_path}'")
         if not file_path.endswith(".csv"):
             print(f"warning: {file_path} is not a .csv file")
         self.file = file_path
@@ -169,7 +169,7 @@ class File:
         print(f"This will extract data into the '{self.table}' table.")
 
         if input("Continue? (y/n): ").lower().strip() != "y":
-            print("Aborted.")
+            print("aborted")
             return
 
         with open(self.file, "r", encoding="utf-8-sig") as f:

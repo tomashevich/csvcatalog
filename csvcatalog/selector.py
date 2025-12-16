@@ -7,7 +7,7 @@ def select_options(options: list[str], title: str) -> list[str]:
 
     def draw_menu(stdscr):
         stdscr.clear()
-        h, w = stdscr.getmaxyx()
+        h, _ = stdscr.getmaxyx()
 
         # Instructions
         instructions = "[↑ ↓] navigate  [space] toggle  [enter] confirm  [esc] cancel"
@@ -76,4 +76,4 @@ if __name__ == "__main__":
 
     except Exception as e:
         print(f"An error occurred: {e}")
-        print("This test requires a terminal that supports curses.")
+        print("this test requires a terminal that supports curses")
