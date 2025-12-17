@@ -52,7 +52,7 @@ List of commands
 *   `system <command>`: Lets you run any shell command without leaving the CLI
 *   `extract <file.csv>`: Setup and process extraction data from csv table to database
 
-#### Commands for actions with database
+#### Actions with database
 
 *   `db <path_to_db>`: Switches to a different database file
 *   `tables`: Lists all the tables in your database
@@ -61,5 +61,15 @@ List of commands
 *   `sql <stmt>`: Executes a pure SQL statement on the database
 *   `export <table_name>`: Exports a table to a CSV file
 *   `search <value> <optional: table_name>`: Search a value in table(s)
+
+
+#### Redirect stdout (save command output to file):
+
+You can redirect any stdout to specific file using default `>` symbol
+
+```bash
+search Germany geoip > florida_ips.txt
+```
+
 
 ## Contributing are welcome 🤝
