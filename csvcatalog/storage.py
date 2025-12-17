@@ -69,8 +69,8 @@ class Storage:
         registry.register(
             name="search",
             handler=self._search_command,
-            description="search for a value in a table or all tables",
-            example="search 'John' users",
+            description="search for a value in specified tables/columns or globally",
+            example="search 'John' users,products.name,*.email",
             aliases=["find"],
         )
 
@@ -92,8 +92,8 @@ class Storage:
         if not self.con or not self.cur:
             raise sqlite3.OperationalError("database connection is not available")
 
-        safe_name = self._validate_table_name(name)
-        safe_columns = [self._validate_table_name(c) for c in columns]
+        safe_name = self._validate_identifier(name)
+        safe_columns = [self._validate_identifier(c) for c in columns]
 
         query = f'CREATE TABLE IF NOT EXISTS "{safe_name}" ({", ".join(f'"{c}" TEXT' for c in safe_columns)})'
         self.cur.execute(query)
@@ -104,7 +104,7 @@ class Storage:
         if not self.con or not self.cur:
             raise sqlite3.OperationalError("database connection is not available")
 
-        safe_name = self._validate_table_name(name)
+        safe_name = self._validate_identifier(name)
         self.cur.execute(f'DROP TABLE IF EXISTS "{safe_name}"')
         self.con.commit()
 
@@ -126,7 +126,7 @@ class Storage:
 
         tables = []
         for name in table_names:
-            safe_name = self._validate_table_name(name)
+            safe_name = self._validate_identifier(name)
             self.cur.execute(f'PRAGMA table_info("{safe_name}")')
             columns = [col["name"] for col in self.cur.fetchall()]
 
@@ -144,9 +144,9 @@ class Storage:
         if not self.con or not self.cur:
             raise sqlite3.OperationalError("database connection is not available")
 
-        safe_table = self._validate_table_name(table)
+        safe_table = self._validate_identifier(table)
         columns = list(data[0].keys())
-        safe_columns = [self._validate_table_name(c) for c in columns]
+        safe_columns = [self._validate_identifier(c) for c in columns]
 
         placeholders = ", ".join(["?"] * len(safe_columns))
         query = f'INSERT INTO "{safe_table}" ({", ".join(f'"{c}"' for c in safe_columns)}) VALUES ({placeholders})'
@@ -156,19 +156,21 @@ class Storage:
         self.con.commit()
 
     def search_data(
-        self, value: str, table_name: str | None = None
+        self, value: str, table_name: str | None = None, column_name: str | None = None
     ) -> dict[str, list[dict]]:
-        """searches for a value across specified tables or all tables"""
+        """searches for a value across specified tables/columns or all tables"""
         if not self.con or not self.cur:
             raise sqlite3.OperationalError("database connection is not available")
 
-        tables_to_search = []
+        tables_to_search: list[Table] = []
         if table_name:
             table = next((t for t in self.get_tables() if t.name == table_name), None)
             if not table:
                 raise ValueError(f"table '{table_name}' not found")
             tables_to_search.append(table)
         else:
+            # If table_name is None, search all tables.
+            # This is where the new 'search all tables for specific column' logic comes in.
             tables_to_search = self.get_tables()
 
         search_pattern = f"%{value}%"
@@ -178,9 +180,32 @@ class Storage:
             if not table.columns:
                 continue
 
-            where_clause = " or ".join(f'"{col}" like ?' for col in table.columns)
-            query = f'select * from "{table.name}" where {where_clause}'
-            params = [search_pattern] * len(table.columns)
+            # Logic to determine which columns to search in the current table
+            columns_to_search_in_table: list[str] = []
+            if column_name:  # If a specific column name is provided (e.g., from *.column_name or table.column_name)
+                safe_column_name = self._validate_identifier(column_name)
+                if safe_column_name in table.columns:
+                    columns_to_search_in_table.append(safe_column_name)
+                elif (
+                    table_name
+                ):  # If a specific table was given and column not found, raise error
+                    raise ValueError(
+                        f"column '{column_name}' not found in table '{table.name}'"
+                    )
+                # If table_name is None (global column search) and column not found in this table, just skip this table implicitly
+            else:  # If no specific column_name is provided, search all columns in this table
+                columns_to_search_in_table.extend(table.columns)
+
+            if not columns_to_search_in_table:
+                continue  # No columns to search in this table (e.g., column_name not found in global search)
+
+            # Construct WHERE clause based on determined columns
+            where_clause = " or ".join(
+                f'"{self._validate_identifier(col)}"' + " like ?"
+                for col in columns_to_search_in_table
+            )
+            query = f'select * from "{self._validate_identifier(table.name)}" where {where_clause}'
+            params = [search_pattern] * len(columns_to_search_in_table)
 
             self.cur.execute(query, params)
             rows = self.cur.fetchall()
@@ -191,12 +216,53 @@ class Storage:
 
         return all_results
 
-    def _validate_table_name(self, name: str) -> str:
+    def _validate_identifier(self, name: str) -> str:
         """validates and sanitizes a table or column name for sql usage"""
         cleaned_name = "".join(c for c in name if c.isidentifier()).lstrip("_")
         if not cleaned_name or not cleaned_name.isidentifier():
             raise ValueError(f"invalid table name: '{name}'")
         return cleaned_name
+
+    def _parse_search_targets(
+        self, targets_arg: str | None
+    ) -> list[tuple[str | None, str | None]]:
+        """
+        parses a comma-separated string of search targets into list (table_name, column_name)
+        table_name, table_name.column_name, and *.column_name.
+        """
+        search_targets: list[tuple[str | None, str | None]] = []
+
+        if not targets_arg:
+            search_targets.append((None, None))  # global search
+            return search_targets
+
+        target_specifiers = [s.strip() for s in targets_arg.split(",") if s.strip()]
+
+        for specifier in target_specifiers:
+            table_name: str | None = None
+            column_name: str | None = None
+
+            if specifier.startswith("*."):
+                table_name = None  # indicate search across all tables
+                column_name = specifier[2:]  # get column name after *.
+                if not column_name:
+                    err_print(
+                        f"invalid global column specifier '{specifier}', skipping."
+                    )
+                    continue
+            elif "." in specifier:
+                parts = specifier.split(".", 1)
+                table_name = parts[0]
+                column_name = parts[1]
+            else:
+                table_name = specifier
+            search_targets.append((table_name, column_name))
+
+        # all invalid
+        if not search_targets:
+            search_targets.append((None, None))  # to global search
+
+        return search_targets
 
     def _set_database(self, path: str) -> None:
         """sets the active database file"""
@@ -301,8 +367,8 @@ class Storage:
         if not output_filename.lower().endswith(".csv"):
             output_filename += ".csv"
 
-        safe_table_name = self._validate_table_name(table_name)
-        safe_columns = [self._validate_table_name(c) for c in selected_columns]
+        safe_table_name = self._validate_identifier(table_name)
+        safe_columns = [self._validate_identifier(c) for c in selected_columns]
         columns_str = ", ".join(f'"{c}"' for c in safe_columns)
 
         query = f'SELECT {columns_str} FROM "{safe_table_name}"'
@@ -324,32 +390,66 @@ class Storage:
             err_print(f"could not write to file '{output_filename}': {e}")
 
     def _search_command(self, *args: str) -> None:
-        """searches for a value in a table or all tables and displays the results"""
+        """searches for a value in specified tables/columns or globally and displays the results"""
         if not args:
             err_print("search value cannot be empty")
             return
 
         value = args[0]
-        table_name = args[1] if len(args) > 1 else None
+        # Use the helper to parse search targets
+        search_targets = self._parse_search_targets(args[1] if len(args) > 1 else None)
 
         print(f"searching for '{value}'...")
         start_time = time.time()
-        try:
-            results_by_table = self.search_data(value, table_name)
-        except (ValueError, sqlite3.OperationalError) as e:
-            err_print(str(e))
-            return
+
+        aggregated_results_by_table: dict[str, list[dict]] = {}
+
+        for table_name_target, column_name_target in search_targets:
+            try:
+                # Call search_data for each target
+                results_for_target = self.search_data(
+                    value, table_name_target, column_name_target
+                )
+                for table, rows in results_for_target.items():
+                    aggregated_results_by_table.setdefault(table, []).extend(rows)
+            except (ValueError, sqlite3.OperationalError) as e:
+                # Provide more context if an error occurs for a specific target
+                target_display = ""
+                if table_name_target and column_name_target:
+                    target_display = f"'{table_name_target}.{column_name_target}'"
+                elif table_name_target:
+                    target_display = f"'{table_name_target}'"
+                elif column_name_target:  # For *.column_name
+                    target_display = f"'*.{column_name_target}'"
+
+                err_print(
+                    f"error during search for target {target_display or 'global search'}: {e}"
+                )
+                # Continue with other targets if one fails, but log the error
+                continue
         end_time = time.time()
 
-        total_matches = 0
-        if not results_by_table:
+        total_unique_matches = 0
+        if not aggregated_results_by_table:
             print("no matches found")
             return
 
-        for table, rows in results_by_table.items():
-            total_matches += len(rows)
-            print(f"\nfound {len(rows)} match(es) in table '{table}':")
-            print(tabulate(rows, headers="keys", tablefmt="grid"))
+        # Display aggregated results
+        for table, rows in aggregated_results_by_table.items():
+            # De-duplicate rows. Convert dict to a tuple of (key, value) pairs, sort it, and make it hashable
+            unique_rows = []
+            seen = set()
+            for row_dict in rows:
+                hashable_row = frozenset(row_dict.items())
+                if hashable_row not in seen:
+                    unique_rows.append(row_dict)
+                    seen.add(hashable_row)
+
+            total_unique_matches += len(unique_rows)
+            print(f"\nfound {len(unique_rows)} match(es) in table '{table}':")
+            print(tabulate(unique_rows, headers="keys", tablefmt="grid"))
 
         duration = end_time - start_time
-        print(f"\nfound {total_matches} total match(es) in {duration:.4f} seconds")
+        print(
+            f"\nfound {total_unique_matches} total unique match(es) in {duration:.4f} seconds"
+        )

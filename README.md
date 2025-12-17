@@ -60,7 +60,8 @@ List of commands
 *   `purge`: Wipes the entire database clean
 *   `sql <stmt>`: Executes a pure SQL statement on the database
 *   `export <table_name>`: Exports a table to a CSV file
-*   `search <value> <optional: table_name>`: Search a value in table(s)
+*   `search <value> <opt: table_name.<opt: column>,<...>>`: Search a value in table(s)
+*   `search <value> *.<opt: column>,<...>`: Search a value in all tables with n column (2nd example)
 
 
 #### Redirect stdout (save command output to file):
