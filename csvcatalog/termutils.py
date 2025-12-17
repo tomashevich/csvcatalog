@@ -8,7 +8,9 @@ def err_print(text: str) -> None:
 
 
 def select_options(
-    options: list[str], title: str, default_selected: bool = False
+    options: list[str],
+    title: str,
+    default_selected: bool = False,
 ) -> list[str]:
     """
     an interactive selector for the terminal user interface
@@ -41,9 +43,9 @@ def select_options(
 
             if i == current_pos:
                 stdscr.attron(curses.A_REVERSE)
-            
+
             stdscr.addstr(i + 2, 0, display_str)
-            
+
             if i == current_pos:
                 stdscr.attroff(curses.A_REVERSE)
 

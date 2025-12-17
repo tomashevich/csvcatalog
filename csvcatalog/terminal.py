@@ -45,7 +45,10 @@ class Terminal:
         while not self._should_exit:
             try:
                 # if confirm_exit is true, check if timeout has passed
-                if self._confirm_exit and time.time() - self._confirm_time > self._confirm_exit_timeout_s:
+                if (
+                    self._confirm_exit
+                    and time.time() - self._confirm_time > self._confirm_exit_timeout_s
+                ):
                     self._confirm_exit = False
                     print("exit cancelled")
 
@@ -57,6 +60,8 @@ class Terminal:
                     self._should_exit = True
                 else:
                     self._confirm_exit = True
-                    self._confirm_time = time.time()  # set the time when first ctrl+c was pressed
+                    self._confirm_time = (
+                        time.time()
+                    )  # set the time when first ctrl+c was pressed
                     print("\n(press ctrl+c again to exit)")
         print("\nbye")

@@ -1,5 +1,6 @@
 import argparse
 import os
+import subprocess
 import sys
 
 from platformdirs import user_data_dir
@@ -41,10 +42,10 @@ def main():
         sys.exit(0)
 
     def _clear() -> None:
-        os.system("cls" if os.name == "nt" else "clear")
+        subprocess.run("cls" if os.name == "nt" else "clear", shell=True)
 
     def _system(*cmd: str) -> None:
-        os.system(" ".join(cmd))
+        subprocess.run(" ".join(cmd), shell=True)
 
     def _run_extraction_wizard(file_path: str) -> None:
         try:
@@ -55,15 +56,21 @@ def main():
         except Exception as e:
             err_print(f"an unexpected error occurred: {e}")
 
-    registry.register("help", _help, description="show all available commands")
     registry.register(
-        "exit", _exit, description="exit the application", aliases=["quit"]
+        name="help", handler=_help, description="show all available commands"
     )
-    registry.register("clear", _clear, description="clear the screen", aliases=["cls"])
-    registry.register("system", _system, description="run a system command")
     registry.register(
-        "extract",
-        _run_extraction_wizard,
+        name="exit", handler=_exit, description="exit the application", aliases=["quit"]
+    )
+    registry.register(
+        name="clear", handler=_clear, description="clear the screen", aliases=["cls"]
+    )
+    registry.register(
+        name="system", handler=_system, description="run a system command"
+    )
+    registry.register(
+        name="extract",
+        handler=_run_extraction_wizard,
         description="run interactive wizard to extract data from a csv file",
         example="extract data.csv",
         aliases=["parse"],

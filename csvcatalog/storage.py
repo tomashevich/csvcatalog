@@ -31,59 +31,59 @@ class Storage:
     def _register_commands(self) -> None:
         """registers storage-related commands with the global registry"""
         registry.register(
-            "storage.help",
-            self._help,
+            name="storage.help",
+            handler=self._help,
             description="display storage help",
             aliases=["s.help"],
         )
         registry.register(
-            "storage.reload",
-            self._reload,
+            name="storage.reload",
+            handler=self._reload,
             description="reload database connection",
             aliases=["s.reload"],
         )
         registry.register(
-            "storage.tables",
-            self._list_tables,
+            name="storage.tables",
+            handler=self._list_tables,
             description="list all tables in the database",
             aliases=["s.tables"],
         )
         registry.register(
-            "storage.db",
-            self._set_database,
+            name="storage.db",
+            handler=self._set_database,
             description="set database file",
             example="storage.db /path/to/database.db",
             aliases=["s.db"],
         )
         registry.register(
-            "storage.del.table",
-            self._delete_table,
+            name="storage.del.table",
+            handler=self._delete_table,
             description="delete a table",
             example="storage.del.table my_table",
             aliases=["s.del.table"],
         )
         registry.register(
-            "storage.purge",
-            self._purge_database_command,
+            name="storage.purge",
+            handler=self._purge_database_command,
             description="clear the entire database",
             aliases=["s.purge"],
         )
         registry.register(
-            "storage.sql",
-            self._execute_sql,
+            name="storage.sql",
+            handler=self._execute_sql,
             description="execute sql command",
             aliases=["s.sql"],
         )
         registry.register(
-            "storage.export",
-            self._export_table,
+            name="storage.export",
+            handler=self._export_table,
             description="export a table to a csv file",
             example="storage.export my_table",
             aliases=["s.export"],
         )
         registry.register(
-            "storage.search",
-            self._search_command,
+            name="storage.search",
+            handler=self._search_command,
             description="search for a value in a table or all tables",
             example="storage.search 'John' users",
             aliases=["s.search"],
