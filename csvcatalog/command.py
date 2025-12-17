@@ -6,6 +6,7 @@ from .termutils import err_print
 
 @dataclass(frozen=True)
 class Command:
+    """represents a command that can be executed by the CLI"""
     name: str
     handler: Callable[..., Any]
     description: str = ""

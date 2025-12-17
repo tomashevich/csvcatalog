@@ -11,7 +11,10 @@ from .wizard import ExtractionWizard
 
 
 def main():
-    parser = argparse.ArgumentParser(description="csv catalog cli tool")
+    """main entry point for the csv catalog cli tool"""
+    parser = argparse.ArgumentParser(
+        description="a command-line interface tool for managing csv catalogs"
+    )
     parser.add_argument(
         "--db",
         type=str,
@@ -40,7 +43,7 @@ def main():
     def _clear() -> None:
         os.system("cls" if os.name == "nt" else "clear")
 
-    def _system(*cmd) -> None:
+    def _system(*cmd: str) -> None:
         os.system(" ".join(cmd))
 
     def _run_extraction_wizard(file_path: str) -> None:

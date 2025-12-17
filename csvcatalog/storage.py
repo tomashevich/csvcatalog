@@ -3,6 +3,7 @@ import os
 import sqlite3
 import time
 from dataclasses import dataclass
+from typing import Any
 
 from tabulate import tabulate
 
@@ -18,6 +19,8 @@ class Table:
 
 
 class Storage:
+    """manages database connection and data operations"""
+
     def __init__(self, database_path: str):
         self.con: sqlite3.Connection | None = None
         self.cur: sqlite3.Cursor | None = None
@@ -26,66 +29,68 @@ class Storage:
         self._register_commands()
 
     def _register_commands(self) -> None:
+        """registers storage-related commands with the global registry"""
         registry.register(
             "storage.help",
             self._help,
-            description="Display storage help",
+            description="display storage help",
             aliases=["s.help"],
         )
         registry.register(
             "storage.reload",
             self._reload,
-            description="Reload database connection",
+            description="reload database connection",
             aliases=["s.reload"],
         )
         registry.register(
             "storage.tables",
             self._list_tables,
-            description="List all tables in the database",
+            description="list all tables in the database",
             aliases=["s.tables"],
         )
         registry.register(
             "storage.db",
             self._set_database,
-            description="Set database file",
+            description="set database file",
             example="storage.db /path/to/database.db",
             aliases=["s.db"],
         )
         registry.register(
             "storage.del.table",
             self._delete_table,
-            description="Delete a table",
+            description="delete a table",
             example="storage.del.table my_table",
             aliases=["s.del.table"],
         )
         registry.register(
             "storage.purge",
             self._purge_database_command,
-            description="Clear the entire database",
+            description="clear the entire database",
             aliases=["s.purge"],
         )
         registry.register(
             "storage.sql",
             self._execute_sql,
-            description="Execute SQL command",
+            description="execute sql command",
             aliases=["s.sql"],
         )
         registry.register(
             "storage.export",
             self._export_table,
-            description="Export a table to a CSV file",
+            description="export a table to a csv file",
             example="storage.export my_table",
             aliases=["s.export"],
         )
         registry.register(
             "storage.search",
             self._search_command,
-            description="Search for a value in a table or all tables",
+            description="search for a value in a table or all tables",
             example="storage.search 'John' users",
             aliases=["s.search"],
         )
 
     def set_database(self, database_path: str) -> None:
+        """sets the database file and establishes a connection"""
         if os.path.isdir(database_path):
             raise IsADirectoryError(f"database path '{database_path}' is a directory")
 
@@ -98,12 +103,14 @@ class Storage:
         self.cur = self.con.cursor()
 
     def _validate_table_name(self, name: str) -> str:
+        """validates and sanitizes a table or column name for sql usage"""
         cleaned_name = "".join(c for c in name if c.isidentifier()).lstrip("_")
         if not cleaned_name or not cleaned_name.isidentifier():
             raise ValueError(f"invalid table name: '{name}'")
         return cleaned_name
 
     def create_table(self, name: str, columns: list[str]) -> None:
+        """creates a new table in the database with specified columns"""
         if not self.con or not self.cur:
             raise sqlite3.OperationalError("database connection is not available")
 
@@ -115,6 +122,7 @@ class Storage:
         self.con.commit()
 
     def delete_table(self, name: str) -> None:
+        """deletes a table from the database"""
         if not self.con or not self.cur:
             raise sqlite3.OperationalError("database connection is not available")
 
@@ -123,11 +131,13 @@ class Storage:
         self.con.commit()
 
     def purge_database(self) -> None:
+        """deletes all tables from the database"""
         tables = self.get_tables()
         for table in tables:
             self.delete_table(table.name)
 
     def get_tables(self) -> list[Table]:
+        """retrieves a list of all tables in the database with their columns and row counts"""
         if not self.con or not self.cur:
             raise sqlite3.OperationalError("database connection is not available")
 
@@ -148,7 +158,8 @@ class Storage:
 
         return tables
 
-    def save(self, table: str, data: list[dict[str, any]]) -> None:
+    def save(self, table: str, data: list[dict[str, Any]]) -> None:
+        """saves a list of dictionaries as rows into the specified table"""
         if not data:
             return
 
@@ -169,6 +180,7 @@ class Storage:
     def search_data(
         self, value: str, table_name: str | None = None
     ) -> dict[str, list[dict]]:
+        """searches for a value across specified tables or all tables"""
         if not self.con or not self.cur:
             raise sqlite3.OperationalError("database connection is not available")
 
@@ -188,8 +200,8 @@ class Storage:
             if not table.columns:
                 continue
 
-            where_clause = " OR ".join(f'"{col}" LIKE ?' for col in table.columns)
-            query = f'SELECT * FROM "{table.name}" WHERE {where_clause}'
+            where_clause = " or ".join(f'"{col}" like ?' for col in table.columns)
+            query = f'select * from "{table.name}" where {where_clause}'
             params = [search_pattern] * len(table.columns)
 
             self.cur.execute(query, params)
@@ -202,6 +214,7 @@ class Storage:
         return all_results
 
     def _help(self) -> None:
+        """displays help information for storage commands"""
         print("storage: manages the database connection and data")
         print("\ncurrent configuration:")
         print(f"  - database: {self.database_file}")
@@ -211,27 +224,32 @@ class Storage:
                 print(f"  {command}")
 
     def _reload(self) -> None:
+        """reloads the database connection"""
         self.set_database(self.database_file)
         print("database connection reloaded")
 
     def _set_database(self, path: str) -> None:
+        """sets the active database file"""
         self.set_database(path)
         print(f"database file set to '{path}'")
 
     def _delete_table(self, name: str) -> None:
+        """deletes a specified table from the database"""
         self.delete_table(name)
         print(f"deleted table '{name}'")
 
     def _purge_database_command(self) -> None:
-        prompt = "are you sure you want to clear the entire database? (Y/n): "
+        """interactively prompts to clear the entire database"""
+        prompt = "are you sure you want to clear the entire database? (y/n): "
         user_input = input(prompt).strip().lower()
-        if user_input not in ("n",):
+        if user_input not in ("n", "no"):
             self.purge_database()
             print("database purged")
         else:
             print("purge cancelled")
 
     def _list_tables(self) -> None:
+        """lists all tables in the database with their column and row counts"""
         tables = self.get_tables()
         if not tables:
             err_print("no tables found")
@@ -239,15 +257,19 @@ class Storage:
 
         print(f"{len(tables)} tables found:")
         for table in tables:
-            cols = ", ".join(table.columns)
-            print(f"  - {table.name} ({cols}): {table.count} rows")
+            if table.columns:
+                cols_str = ", ".join(table.columns)
+                print(f"  - {table.name} ({cols_str}): {table.count} rows")
+            else:
+                print(f"  - {table.name}: {table.count} rows")
 
-    def _execute_sql(self, *st) -> None:
+    def _execute_sql(self, *sql_parts: str) -> None:
+        """executes an sql command and displays results if any"""
         if not self.con or not self.cur:
             raise sqlite3.OperationalError("database connection is not available")
 
         try:
-            self.cur.execute(" ".join(st))
+            self.cur.execute(" ".join(sql_parts))
             self.con.commit()
             results = self.cur.fetchall()
             if results:
@@ -262,6 +284,7 @@ class Storage:
             err_print(str(e))
 
     def _export_table(self, table_name: str) -> None:
+        """exports a specified table to a csv file"""
         if not self.con or not self.cur:
             raise sqlite3.OperationalError("database connection is not available")
 
@@ -331,6 +354,7 @@ class Storage:
             err_print(f"could not write to file '{output_filename}': {e}")
 
     def _search_command(self, *args: str) -> None:
+        """searches for a value in a table or all tables and displays the results"""
         if not args:
             err_print("search value cannot be empty")
             return
