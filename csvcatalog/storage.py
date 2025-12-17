@@ -31,62 +31,47 @@ class Storage:
     def _register_commands(self) -> None:
         """registers storage-related commands with the global registry"""
         registry.register(
-            name="storage.help",
-            handler=self._help,
-            description="display storage help",
-            aliases=["s.help"],
-        )
-        registry.register(
-            name="storage.reload",
-            handler=self._reload,
-            description="reload database connection",
-            aliases=["s.reload"],
-        )
-        registry.register(
-            name="storage.tables",
-            handler=self._list_tables,
-            description="list all tables in the database",
-            aliases=["s.tables"],
-        )
-        registry.register(
-            name="storage.db",
+            name="db",
             handler=self._set_database,
             description="set database file",
-            example="storage.db /path/to/database.db",
-            aliases=["s.db"],
+            example="db /path/to/database.db",
         )
         registry.register(
-            name="storage.del.table",
+            name="tables",
+            handler=self._list_tables,
+            description="list all tables in the database",
+            aliases=["list"],
+        )
+        registry.register(
+            name="delete",
             handler=self._delete_table,
             description="delete a table",
-            example="storage.del.table my_table",
-            aliases=["s.del.table"],
+            example="delete my_table",
+            aliases=["del"],
         )
         registry.register(
-            name="storage.purge",
+            name="purge",
             handler=self._purge_database_command,
             description="clear the entire database",
-            aliases=["s.purge"],
         )
         registry.register(
-            name="storage.sql",
+            name="sql",
             handler=self._execute_sql,
             description="execute sql command",
-            aliases=["s.sql"],
+            aliases=["execute"],
         )
         registry.register(
-            name="storage.export",
+            name="export",
             handler=self._export_table,
             description="export a table to a csv file",
-            example="storage.export my_table",
-            aliases=["s.export"],
+            example="export my_table",
         )
         registry.register(
-            name="storage.search",
+            name="search",
             handler=self._search_command,
             description="search for a value in a table or all tables",
-            example="storage.search 'John' users",
-            aliases=["s.search"],
+            example="search 'John' users",
+            aliases=["find"],
         )
 
     def set_database(self, database_path: str) -> None:
@@ -101,13 +86,6 @@ class Storage:
         self.con = sqlite3.connect(database_path)
         self.con.row_factory = sqlite3.Row  # improve row access
         self.cur = self.con.cursor()
-
-    def _validate_table_name(self, name: str) -> str:
-        """validates and sanitizes a table or column name for sql usage"""
-        cleaned_name = "".join(c for c in name if c.isidentifier()).lstrip("_")
-        if not cleaned_name or not cleaned_name.isidentifier():
-            raise ValueError(f"invalid table name: '{name}'")
-        return cleaned_name
 
     def create_table(self, name: str, columns: list[str]) -> None:
         """creates a new table in the database with specified columns"""
@@ -213,20 +191,12 @@ class Storage:
 
         return all_results
 
-    def _help(self) -> None:
-        """displays help information for storage commands"""
-        print("storage: manages the database connection and data")
-        print("\ncurrent configuration:")
-        print(f"  - database: {self.database_file}")
-        print("\navailable storage commands:")
-        for command in registry.all_commands():
-            if command.name.startswith("storage."):
-                print(f"  {command}")
-
-    def _reload(self) -> None:
-        """reloads the database connection"""
-        self.set_database(self.database_file)
-        print("database connection reloaded")
+    def _validate_table_name(self, name: str) -> str:
+        """validates and sanitizes a table or column name for sql usage"""
+        cleaned_name = "".join(c for c in name if c.isidentifier()).lstrip("_")
+        if not cleaned_name or not cleaned_name.isidentifier():
+            raise ValueError(f"invalid table name: '{name}'")
+        return cleaned_name
 
     def _set_database(self, path: str) -> None:
         """sets the active database file"""

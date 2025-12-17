@@ -44,7 +44,7 @@ Here's a quick rundown of the commands you'll be using
 
 ### Commands
 
-Standart list of commands
+List of commands
 
 *   `help`: Shows you all the available commands
 *   `clear`: Clears the screen
@@ -52,16 +52,14 @@ Standart list of commands
 *   `system <command>`: Lets you run any shell command without leaving the CLI
 *   `extract <file.csv>`: Setup and process extraction data from csv table to database
 
-### The `storage` Module
+#### Commands for actions with database
 
-*   `storage.help`: Shows you the commands of the `storage` module
-*   `storage.db <path_to_db>`: Switches to a different database file
-*   `storage.reload`: Reloads the database connection
-*   `storage.tables`: Lists all the tables in your database
-*   `storage.del.table <table_name>`: Deletes a table
-*   `storage.purge`: Wipes the entire database clean
-*   `storage.sql <stmt>`: Executes a pure SQL statement on the database
-*   `storage.export <table_name>`: Exports a table to a CSV file
-*   `storage.search <value> <optional: table_name>`: Search a value in table(s)
+*   `db <path_to_db>`: Switches to a different database file
+*   `tables`: Lists all the tables in your database
+*   `del <table_name>`: Deletes a table
+*   `purge`: Wipes the entire database clean
+*   `sql <stmt>`: Executes a pure SQL statement on the database
+*   `export <table_name>`: Exports a table to a CSV file
+*   `search <value> <optional: table_name>`: Search a value in table(s)
 
 ## Contributing are welcome 🤝
