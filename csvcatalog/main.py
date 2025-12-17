@@ -4,18 +4,18 @@ import sys
 
 from platformdirs import user_data_dir
 
-from .file import File
 from .registry import registry
 from .storage import Storage
-from .terminal import Terminal
+from .terminal import Terminal, err_print
+from .wizard import ExtractionWizard
 
 
 def main():
-    parser = argparse.ArgumentParser(description="CSV Catalog CLI Tool")
+    parser = argparse.ArgumentParser(description="csv catalog cli tool")
     parser.add_argument(
         "--db",
         type=str,
-        help="Path to the database file.",
+        help="path to the database file",
         default=None,
     )
     args = parser.parse_args()
@@ -26,9 +26,11 @@ def main():
         os.makedirs(data_dir, exist_ok=True)
         db_path = os.path.join(data_dir, "catalog.db")
 
-    # Define and register general commands
+    storage = Storage(db_path)
+
+    # define and register general commands
     def _help() -> None:
-        print("Available commands:")
+        print("available commands:")
         for cmd in registry.all_commands():
             print(f"  {cmd}")
 
@@ -41,18 +43,30 @@ def main():
     def _system(*cmd) -> None:
         os.system(" ".join(cmd))
 
-    registry.register("help", _help, description="Show all available commands.")
+    def _run_extraction_wizard(file_path: str) -> None:
+        try:
+            wizard = ExtractionWizard(storage, file_path)
+            wizard.run()
+        except (FileNotFoundError, IsADirectoryError) as e:
+            err_print(str(e))
+        except Exception as e:
+            err_print(f"an unexpected error occurred: {e}")
+
+    registry.register("help", _help, description="show all available commands")
     registry.register(
-        "exit", _exit, description="Exit the application.", aliases=["quit"]
+        "exit", _exit, description="exit the application", aliases=["quit"]
     )
-    registry.register("clear", _clear, description="Clear the screen.", aliases=["cls"])
-    registry.register("system", _system, description="Run a system command.")
+    registry.register("clear", _clear, description="clear the screen", aliases=["cls"])
+    registry.register("system", _system, description="run a system command")
+    registry.register(
+        "extract",
+        _run_extraction_wizard,
+        description="run interactive wizard to extract data from a csv file",
+        example="extract data.csv",
+        aliases=["parse"],
+    )
 
-    # Initialize modules to register their commands
-    storage = Storage(db_path)
-    File(storage)
-
-    # Run the terminal interface
+    # run the terminal interface
     terminal = Terminal(registry)
     terminal.run()
 

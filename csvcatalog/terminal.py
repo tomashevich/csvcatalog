@@ -5,6 +5,9 @@ import time
 from .registry import CommandRegistry
 from .termutils import err_print
 
+# explicitly export for other modules
+__all__ = ["Terminal", "err_print"]
+
 
 class Terminal:
     def __init__(self, registry: CommandRegistry):

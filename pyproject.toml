@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "csvcatalog"
-version = "1.3"
+version = "1.4"
 description = "tool for creating catalog from .csv tables in duckdb/sqlite storage"
 readme = "README.md"
 requires-python = ">=3.13"

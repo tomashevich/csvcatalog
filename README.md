@@ -42,7 +42,7 @@ csvcatalog --db /path/to/your/database.db
 
 Here's a quick rundown of the commands you'll be using
 
-### Global Commands
+### Commands
 
 Standart list of commands
 
@@ -50,15 +50,7 @@ Standart list of commands
 *   `clear`: Clears the screen
 *   `exit`: Quits the application
 *   `system <command>`: Lets you run any shell command without leaving the CLI
-
-### The `file` Module
-
-*   `file.help`: Shows you the commands of the `file` module
-*   `file.set <path_to_csv>`: Tells Catalog which CSV file you want to work with
-*   `file.sep <separator>`: Sets the CSV separator. Because not everyone uses commas
-*   `file.headers <header1> <header2> ...`: Lets you set custom headers for your data
-*   `file.preview <optional: lines count>`: To make sure everything looks right
-*   `file.run`: Extracts your data and saves it to a table
+*   `extract <file.csv>`: Setup and process extraction data from csv table to database
 
 ### The `storage` Module
 

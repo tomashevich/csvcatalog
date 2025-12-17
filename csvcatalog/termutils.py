@@ -7,24 +7,27 @@ def err_print(text: str) -> None:
     print(f"\033[1;31merror: {text}\033[0m", file=sys.stderr)
 
 
-def select_options(options: list[str], title: str) -> list[str]:
-    selected = [False] * len(options)
+def select_options(
+    options: list[str], title: str, default_selected: bool = False
+) -> list[str]:
+    """an interactive selector for the terminal user interface"""
+    selected = [default_selected] * len(options)
     current_pos = 0
 
     def draw_menu(stdscr, color_pair):
         stdscr.clear()
         h, _ = stdscr.getmaxyx()
 
-        # Instructions
+        # instructions
         instructions = "[↑ ↓] navigate  [space] toggle  [enter] confirm  [esc] cancel"
         stdscr.addstr(0, 0, title)
         stdscr.attron(color_pair)
         stdscr.addstr(h - 1, 0, instructions)
         stdscr.attroff(color_pair)
 
-        # Options rendering starts from line 2
+        # options rendering starts from line 2
         for i, option in enumerate(options):
-            if (i + 2) >= (h - 1):  # Check against available height
+            if (i + 2) >= (h - 1):  # check against available height
                 break
 
             display_str = option
@@ -38,6 +41,7 @@ def select_options(options: list[str], title: str) -> list[str]:
 
             if i == current_pos:
                 stdscr.attron(curses.A_REVERSE)
+                # need to redraw the line content inside the reverse block
                 if selected[i]:
                     stdscr.attron(color_pair)
                     stdscr.addstr(i + 2, 0, "[x] ")
@@ -54,7 +58,7 @@ def select_options(options: list[str], title: str) -> list[str]:
         curses.curs_set(0)
         stdscr.keypad(True)
 
-        # Initialize color
+        # initialize color
         curses.start_color()
         curses.init_pair(1, curses.COLOR_CYAN, curses.COLOR_BLACK)
         color_pair = curses.color_pair(1)
@@ -71,8 +75,8 @@ def select_options(options: list[str], title: str) -> list[str]:
                 selected[current_pos] = not selected[current_pos]
             elif key == curses.KEY_ENTER or key in [10, 13]:
                 break
-            elif key == 27:  # Escape key
-                return []  # Cancel selection
+            elif key == 27:  # escape key
+                return []  # cancel selection
 
     curses.wrapper(main_loop)
 
@@ -91,10 +95,22 @@ if __name__ == "__main__":
         "zip_code",
     ]
     try:
-        chosen_options = select_options(test_options, "Select fields to export:")
-        print("\nSelected options:")
+        print(" running selector with default off ")
+        chosen_options = select_options(
+            test_options, "select fields to export (default off):"
+        )
+        print("\nselected options:")
         if chosen_options:
             for opt in chosen_options:
+                print(f"- {opt}")
+
+        print("\n running selector with default on ")
+        chosen_options_on = select_options(
+            test_options, "select fields to export (default on):", default_selected=True
+        )
+        print("\nselected options:")
+        if chosen_options_on:
+            for opt in chosen_options_on:
                 print(f"- {opt}")
 
     except Exception as e:

@@ -94,6 +94,7 @@ class Storage:
 
         self.database_file = database_path
         self.con = sqlite3.connect(database_path)
+        self.con.row_factory = sqlite3.Row  # improve row access
         self.cur = self.con.cursor()
 
     def _validate_table_name(self, name: str) -> str:
@@ -109,7 +110,7 @@ class Storage:
         safe_name = self._validate_table_name(name)
         safe_columns = [self._validate_table_name(c) for c in columns]
 
-        query = f"CREATE TABLE IF NOT EXISTS {safe_name} ({', '.join(f'{c} TEXT' for c in safe_columns)})"
+        query = f'CREATE TABLE IF NOT EXISTS "{safe_name}" ({", ".join(f'"{c}" TEXT' for c in safe_columns)})'
         self.cur.execute(query)
         self.con.commit()
 
@@ -118,7 +119,7 @@ class Storage:
             raise sqlite3.OperationalError("database connection is not available")
 
         safe_name = self._validate_table_name(name)
-        self.cur.execute(f"DROP TABLE IF EXISTS {safe_name}")
+        self.cur.execute(f'DROP TABLE IF EXISTS "{safe_name}"')
         self.con.commit()
 
     def purge_database(self) -> None:
@@ -133,15 +134,15 @@ class Storage:
         self.cur.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
         )
-        table_names = [row[0] for row in self.cur.fetchall()]
+        table_names = [row["name"] for row in self.cur.fetchall()]
 
         tables = []
         for name in table_names:
             safe_name = self._validate_table_name(name)
-            self.cur.execute(f"PRAGMA table_info({safe_name})")
-            columns = [col[1] for col in self.cur.fetchall()]
+            self.cur.execute(f'PRAGMA table_info("{safe_name}")')
+            columns = [col["name"] for col in self.cur.fetchall()]
 
-            self.cur.execute(f"SELECT COUNT(*) FROM {safe_name}")
+            self.cur.execute(f'SELECT COUNT(*) FROM "{safe_name}"')
             count = self.cur.fetchone()[0]
             tables.append(Table(name, columns, count))
 
@@ -159,9 +160,9 @@ class Storage:
         safe_columns = [self._validate_table_name(c) for c in columns]
 
         placeholders = ", ".join(["?"] * len(safe_columns))
-        query = f"INSERT INTO {safe_table} ({', '.join(safe_columns)}) VALUES ({placeholders})"
+        query = f'INSERT INTO "{safe_table}" ({", ".join(f'"{c}"' for c in safe_columns)}) VALUES ({placeholders})'
 
-        values = [tuple(row.values()) for row in data]
+        values = [tuple(row.get(c, None) for c in columns) for row in data]
         self.cur.executemany(query, values)
         self.con.commit()
 
@@ -195,18 +196,16 @@ class Storage:
             rows = self.cur.fetchall()
 
             if rows:
-                results = [dict(zip(table.columns, row)) for row in rows]
+                results = [dict(row) for row in rows]
                 all_results[table.name] = results
 
         return all_results
 
     def _help(self) -> None:
-        print(
-            "Storage: Manages the database connection and data.\n\n"
-            "Current configuration:\n"
-            f"  - Database: {self.database_file}\n"
-        )
-        print("Available storage commands:")
+        print("storage: manages the database connection and data")
+        print("\ncurrent configuration:")
+        print(f"  - database: {self.database_file}")
+        print("\navailable storage commands:")
         for command in registry.all_commands():
             if command.name.startswith("storage."):
                 print(f"  {command}")
@@ -217,19 +216,16 @@ class Storage:
 
     def _set_database(self, path: str) -> None:
         self.set_database(path)
-        print(f"Database file set to '{path}'")
+        print(f"database file set to '{path}'")
 
     def _delete_table(self, name: str) -> None:
         self.delete_table(name)
         print(f"deleted table '{name}'")
 
     def _purge_database_command(self) -> None:
-        if (
-            input("Are you sure you want to clear the entire database? (y/n): ")
-            .lower()
-            .strip()
-            == "y"
-        ):
+        prompt = "are you sure you want to clear the entire database? (Y/n): "
+        user_input = input(prompt).strip().lower()
+        if user_input not in ("n",):
             self.purge_database()
             print("database purged")
         else:
@@ -253,7 +249,15 @@ class Storage:
         try:
             self.cur.execute(" ".join(st))
             self.con.commit()
-            print(self.cur.fetchall())
+            results = self.cur.fetchall()
+            if results:
+                print(
+                    tabulate(
+                        [dict(row) for row in results], headers="keys", tablefmt="grid"
+                    )
+                )
+            else:
+                print("query executed successfully, no results to display")
         except sqlite3.Error as e:
             err_print(str(e))
 
@@ -267,7 +271,7 @@ class Storage:
             return
 
         selected_columns = select_options(
-            table.columns, title=f"Select columns to export from '{table_name}':"
+            table.columns, title=f"select columns to export from '{table_name}'"
         )
 
         if not selected_columns:
@@ -275,7 +279,7 @@ class Storage:
             return
 
         while True:
-            prompt = f"How many rows to export? (all/{table.count}, or 'cancel'): "
+            prompt = f"how many rows to export? (all/{table.count}, or 'cancel'): "
             limit_str = input(prompt).strip().lower()
 
             if limit_str in ("cancel", "c"):
@@ -292,11 +296,11 @@ class Storage:
                 break
             except ValueError:
                 err_print(
-                    "invalid input. please enter a positive number, 'all', or 'cancel'"
+                    "invalid input, please enter a positive number, 'all', or 'cancel'"
                 )
 
         default_filename = f"{table_name}.csv"
-        filename_prompt = f"Enter filename for export (default: {default_filename}): "
+        filename_prompt = f"enter filename for export (default: {default_filename}): "
         output_filename = input(filename_prompt).strip()
         if not output_filename:
             output_filename = default_filename
@@ -306,9 +310,9 @@ class Storage:
 
         safe_table_name = self._validate_table_name(table_name)
         safe_columns = [self._validate_table_name(c) for c in selected_columns]
-        columns_str = ", ".join(safe_columns)
+        columns_str = ", ".join(f'"{c}"' for c in safe_columns)
 
-        query = f"SELECT {columns_str} FROM {safe_table_name}"
+        query = f'SELECT {columns_str} FROM "{safe_table_name}"'
         if limit != -1:
             query += f" LIMIT {limit}"
 
@@ -334,20 +338,24 @@ class Storage:
         value = args[0]
         table_name = args[1] if len(args) > 1 else None
 
-        print(f"Searching for '{value}'...")
+        print(f"searching for '{value}'...")
         start_time = time.time()
-        results_by_table = self.search_data(value, table_name)
+        try:
+            results_by_table = self.search_data(value, table_name)
+        except (ValueError, sqlite3.OperationalError) as e:
+            err_print(str(e))
+            return
         end_time = time.time()
 
         total_matches = 0
         if not results_by_table:
-            print("No matches found.")
+            print("no matches found")
             return
 
         for table, rows in results_by_table.items():
             total_matches += len(rows)
-            print(f"\nFound {len(rows)} match(es) in table '{table}':")
+            print(f"\nfound {len(rows)} match(es) in table '{table}':")
             print(tabulate(rows, headers="keys", tablefmt="grid"))
 
         duration = end_time - start_time
-        print(f"\nFound {total_matches} total match(es) in {duration:.4f} seconds")
+        print(f"\nfound {total_matches} total match(es) in {duration:.4f} seconds")
