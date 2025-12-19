@@ -1,76 +1,84 @@
-# Catalog
+# CSVCatalog
 
-Catalog made for wrangling CSV files and shoving them into a database. Makes the tedious task of managing CSV data a breeze. No more manual scripts, no more headaches
+a simple cli tool for wrangling csv files and shoving them into a sqlite database. no more manual scripts, no more headaches
 
 ## What's this? 🤔
 
-Tired of messing around with CSVs and databases separately? Me too. That's why I built Catalog. It's a simple, no-nonsense tool that lets you:
+tired of messing around with csvs and databases separately? me too. that's why i built catalog. it's a simple, no-nonsense tool that lets you:
 
-*   **Import CSV files** into a single SQLite database
-*   **Manage your data** with a set of easy-to-use commands
-*   **Export your data** back to CSV whenever you need it
+*   **import csv files** into a sqlite database with an interactive wizard
+*   **search your data** with a powerful, flexible query syntax
+*   **export your data** back to csv whenever you need it
+*   **manage your database** with a set of easy-to-use commands
 
-## Features 🔥
-
-*   **Interactive CLI:** A user-friendly interface that feels like you're chatting with a buddy
-*   **CSV Parsing:** Automatically handles CSV files, with options to customize the separator and headers
-*   **Database Storage:** Uses SQLite to store your data, so it's all in one place
-*   **Data Management:** A rich set of commands to manage your tables
-*   **Data Export:** Easily export your tables back to CSV files, with the ability to select specific columns and a limited number of rows
+all output is beautifully formatted using `rich` 💅.
 
 ## Getting Started 🚀
 
-1. Install
+1.  install
 
 ```bash
 pip install csvcatalog
 ```
 
-2. Run the cli
+2.  run a command
+
+the basic structure is `csvcatalog [OPTIONS] COMMAND [ARGS]`. for example, to see all tables:
 
 ```bash
-csvcatalog
+csvcatalog tables
 ```
 
-2.1 You can also specify a custom database file if you want:
+by default, the database is stored in a user-specific data directory. you can specify a custom database file with the `--db` option:
 
 ```bash
-csvcatalog --db /path/to/your/database.db
+csvcatalog --db /path/to/your/database.db tables
 ```
 
 ## Commands 🕹️
 
-Here's a quick rundown of the commands you'll be using
+`typer` provides help for all commands. just run `csvcatalog --help` or `csvcatalog <command> --help`.
 
-### Commands
+*   `extract <file.csv>`: run an interactive wizard to import a csv file into the database. you'll be prompted to set the separator, rename columns, select columns to import, and name the table.
+*   `tables`: list all tables in the database, with their columns and row counts.
+*   `search <value> [targets...]`: search for a value. this is the most powerful command.
+*   `sql "<query>"`: execute a raw sql query on the database.
+*   `export <table_name>`: export a table to a csv file, with an interactive prompt to select columns and limit rows.
+*   `delete <table_name>`: delete a table from the database.
+*   `purge`: delete all tables from the database.
 
-List of commands
+### the mighty `search` command
 
-*   `help`: Shows you all the available commands
-*   `clear`: Clears the screen
-*   `exit`: Quits the application
-*   `system <command>`: Lets you run any shell command without leaving the CLI
-*   `extract <file.csv>`: Setup and process extraction data from csv table to database
+the `search` command lets you specify exactly where to look for your data. a "target" can be a table, a specific column in a table, or a column across all tables.
 
-#### Actions with database
-
-*   `db <path_to_db>`: Switches to a different database file
-*   `tables`: Lists all the tables in your database
-*   `del <table_name>`: Deletes a table
-*   `purge`: Wipes the entire database clean
-*   `sql <stmt>`: Executes a pure SQL statement on the database
-*   `export <table_name>`: Exports a table to a CSV file
-*   `search <value> <opt: table_name.<opt: column>,<...>>`: Search a value in table(s)
-*   `search <value> *.<opt: column>,<...>`: Search a value in all tables with n column (2nd example)
-
-
-#### Redirect stdout (save command output to file):
-
-You can redirect any stdout to specific file using default `>` symbol
-
+**search for a value in all tables (default behavior):**
 ```bash
-search Germany geoip > florida_ips.txt
+# looks for 'jane' everywhere
+csvcatalog search "jane"
 ```
 
+**search for a value in specific tables:**
+```bash
+# looks for 'jane' in the 'users' and 'customers' tables
+csvcatalog search "jane" users customers
+```
 
-## Contributing are welcome 🤝
+**search for a value in a specific column of a specific table:**
+```bash
+# looks for the email in the 'email' column of the 'users' table
+csvcatalog search "jane.doe@example.com" users.email
+```
+
+**search for a value in a specific column across all tables:**
+```bash
+# finds any entry with a 'status' of 'active' in any table
+csvcatalog search "active" "*.status"
+```
+
+**combine any of these targets in one command:**
+```bash
+# a totally valid and powerful query
+csvcatalog search "jane" users.name products
+```
+
+## contributing are welcome 🤝
