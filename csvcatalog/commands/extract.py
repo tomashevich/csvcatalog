@@ -11,9 +11,28 @@ from ..storage import BaseStorage
 
 console = Console()
 
-# Constants for batch processing
+# constants for batch processing
 BATCH_SIZE = 10_000
-FILE_SIZE_THRESHOLD_MB = 50
+
+
+def _get_csv_data(
+    file_path: Path, separator: str, encoding: str
+) -> tuple[list[str], list[list[str]]]:
+    """helper to read csv headers and preview rows with specified encoding"""
+    try:
+        with file_path.open("r", encoding=encoding, newline="") as f:
+            reader = csv.reader(f, delimiter=separator)
+            csv_headers = next(reader)
+            preview_rows = [row for i, row in enumerate(reader) if i < 5]
+        return csv_headers, preview_rows
+    except StopIteration:
+        raise typer.BadParameter("file appears to be empty or has only a header")
+    except UnicodeDecodeError as e:
+        raise typer.BadParameter(
+            f"could not decode file with '{encoding}' encoding: {e}"
+        )
+    except Exception as e:
+        raise typer.BadParameter(f"could not read file: {e}")
 
 
 def extract(
@@ -29,6 +48,9 @@ def extract(
             resolve_path=True,
         ),
     ],
+    encoding: Annotated[
+        str, typer.Option(help="encoding of the csv file")
+    ] = "utf-8",
 ):
     """run interactive wizard to extract data from a csv file"""
     console.print(f"starting extraction for '{file_path}'")
@@ -40,23 +62,50 @@ def extract(
         console.print("[red]aborted[/red]")
         raise typer.Abort()
 
-    # define columns and preview using csv module
-    try:
-        with file_path.open("r", encoding="utf-8-sig", newline="") as f:
-            reader = csv.reader(f, delimiter=separator)
-            csv_headers = next(reader)
-            preview_rows = [row for i, row in enumerate(reader) if i < 5]
-    except StopIteration:
-        console.print("[red]file appears to be empty or has only a header[/red]")
-        raise typer.Abort()
-    except Exception as e:
-        console.print(f"[red]could not read file: {e}[/red]")
-        raise typer.Abort()
+    current_encoding = encoding
+    csv_headers: list[str] = []
+    preview_rows: list[list[str]] = []
 
-    console.print("\n[bold]raw preview:[/bold]")
-    console.print(separator.join(csv_headers))
-    for row in preview_rows:
-        console.print(separator.join(row))
+    # encoding selection and preview
+    while True:
+        try:
+            csv_headers, preview_rows = _get_csv_data(
+                file_path, separator, current_encoding
+            )
+
+            console.print(
+                f"\n[bold]raw preview with encoding '{current_encoding}':[/bold]"
+            )
+            console.print(separator.join(csv_headers))
+            for row in preview_rows:
+                console.print(separator.join(row))
+
+            confirm_encoding = questionary.confirm(
+                f"is '{current_encoding}' the correct encoding for the preview?"
+            ).unsafe_ask()
+            if confirm_encoding:
+                break
+            else:
+                new_encoding = questionary.text(
+                    "enter new encoding (e.g., utf-8, utf-8-sig, latin-1):",
+                    default=current_encoding,
+                ).unsafe_ask()
+                if not new_encoding:
+                    console.print("[red]aborted[/red]")
+                    raise typer.Abort()
+                current_encoding = new_encoding
+        except typer.BadParameter as e:
+            console.print(f"[red]error: {e}[/red]")
+            new_encoding = questionary.text(
+                "enter new encoding (e.g., utf-8, utf-8-sig, latin-1):",
+                default=current_encoding,
+            ).unsafe_ask()
+            if not new_encoding:
+                console.print("[red]aborted[/red]")
+                raise typer.Abort()
+            current_encoding = new_encoding
+
+    final_encoding = current_encoding
 
     console.print("\n[bold]define database column names for each csv header[/bold]")
     console.print("press enter to accept the default name")
@@ -131,7 +180,7 @@ def extract(
         console.print("starting extraction...")
         storage_instance.create_table(table_name, columns_to_import)
 
-        with file_path.open("r", encoding="utf-8-sig", newline="") as f:
+        with file_path.open("r", encoding=final_encoding, newline="") as f:
             reader = csv.reader(f, delimiter=separator)
             next(reader)  # skip header
 
