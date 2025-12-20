@@ -2,13 +2,14 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from ..storage import Storage
+from ..storage import BaseStorage
 
 console = Console()
 
+
 def tables(ctx: typer.Context):
     """list all tables in the database"""
-    storage_instance: Storage = ctx.obj
+    storage_instance: BaseStorage = ctx.obj
     db_tables = storage_instance.get_tables()
     if not db_tables:
         console.print("[yellow]no tables found[/yellow]")
@@ -23,4 +24,3 @@ def tables(ctx: typer.Context):
         table.add_row(t.name, ", ".join(t.columns), str(t.count))
 
     console.print(table)
-

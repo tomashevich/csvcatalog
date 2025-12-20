@@ -44,7 +44,7 @@ def main(
     else:
         final_db_path = config.get_data_dir() / "catalog.db"
 
-    ctx.obj = storage.Storage(final_db_path)
+    ctx.obj = storage.SqliteStorage(final_db_path)
 
 
 app.command()(extract)

@@ -4,16 +4,17 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from ..storage import Storage
+from ..storage import BaseStorage
 
 console = Console()
+
 
 def sql(
     ctx: typer.Context,
     query: Annotated[str, typer.Argument(help="The SQL query to execute")],
 ):
     """execute sql command"""
-    storage_instance: Storage = ctx.obj
+    storage_instance: BaseStorage = ctx.obj
     try:
         results = storage_instance.sql(query)
         if not results:

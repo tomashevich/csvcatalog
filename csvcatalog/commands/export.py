@@ -5,16 +5,17 @@ import questionary
 import typer
 from rich.console import Console
 
-from ..storage import Storage
+from ..storage import BaseStorage
 
 console = Console()
+
 
 def export(
     ctx: typer.Context,
     table_name: Annotated[str, typer.Argument(help="the name of the table to export")],
 ):
     """export a table to a csv file"""
-    storage_instance: Storage = ctx.obj
+    storage_instance: BaseStorage = ctx.obj
     table = storage_instance.get_table(table_name)
     if not table:
         console.print(f"[red]table '{table_name}' not found[/red]")
@@ -63,9 +64,7 @@ def export(
             for row in results:
                 writer.writerow(row.values())
 
-        console.print(
-            f"[green]successfully exported to '{output_filename}'[/green]"
-        )
+        console.print(f"[green]successfully exported to '{output_filename}'[/green]")
     except Exception as e:
         console.print(f"[red]error during export: {e}[/red]")
         raise typer.Abort()

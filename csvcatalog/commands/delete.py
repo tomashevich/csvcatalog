@@ -4,16 +4,17 @@ import questionary
 import typer
 from rich.console import Console
 
-from ..storage import Storage
+from ..storage import BaseStorage
 
 console = Console()
+
 
 def delete(
     ctx: typer.Context,
     table_name: Annotated[str, typer.Argument(help="the name of the table to delete")],
 ):
     """delete a table"""
-    storage_instance: Storage = ctx.obj
+    storage_instance: BaseStorage = ctx.obj
     if not questionary.confirm(
         f"are you sure you want to delete table '{table_name}'?"
     ).unsafe_ask():

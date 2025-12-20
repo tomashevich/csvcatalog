@@ -1,4 +1,5 @@
 import sqlite3
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -11,8 +12,41 @@ class Table:
     count: int
 
 
-class Storage:
-    """manages database connection and data operations"""
+class BaseStorage(ABC):
+    """abstract base class for storage operations"""
+
+    @abstractmethod
+    def create_table(self, name: str, columns: list[str]) -> None: ...
+
+    @abstractmethod
+    def delete_table(self, name: str) -> None: ...
+
+    @abstractmethod
+    def purge_database(self) -> None: ...
+
+    @abstractmethod
+    def get_table(self, name: str) -> Table | None: ...
+
+    @abstractmethod
+    def get_tables(self) -> list[Table]: ...
+
+    @abstractmethod
+    def save(self, table: str, data: list[dict[str, Any]]) -> None: ...
+
+    @abstractmethod
+    def search(
+        self, value: str, targets: list[str] | None = None
+    ) -> dict[str, list[dict[str, Any]]]: ...
+
+    @abstractmethod
+    def sql(self, query: str) -> list[dict[str, Any]]: ...
+
+    @abstractmethod
+    def close(self) -> None: ...
+
+
+class SqliteStorage(BaseStorage):
+    """manages database connection and data operations for sqlite"""
 
     def __init__(self, database_path: Path):
         self._db_path = database_path

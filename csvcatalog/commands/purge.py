@@ -2,13 +2,14 @@ import questionary
 import typer
 from rich.console import Console
 
-from ..storage import Storage
+from ..storage import BaseStorage
 
 console = Console()
 
+
 def purge(ctx: typer.Context):
     """clear the entire database"""
-    storage_instance: Storage = ctx.obj
+    storage_instance: BaseStorage = ctx.obj
     if not questionary.confirm(
         "are you sure you want to clear the entire database?"
     ).unsafe_ask():

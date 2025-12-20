@@ -6,9 +6,10 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from ..storage import Storage
+from ..storage import BaseStorage
 
 console = Console()
+
 
 def extract(
     ctx: typer.Context,
@@ -26,7 +27,7 @@ def extract(
 ):
     """run interactive wizard to extract data from a csv file"""
     console.print(f"starting extraction for '{file_path}'")
-    storage_instance: Storage = ctx.obj
+    storage_instance: BaseStorage = ctx.obj
 
     # initial preview
     try:

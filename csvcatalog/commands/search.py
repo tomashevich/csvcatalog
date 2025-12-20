@@ -5,7 +5,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from ..storage import Storage
+from ..storage import BaseStorage
 
 console = Console()
 
@@ -21,7 +21,7 @@ def search(
     ] = [],
 ):
     """search for a value in specified tables/columns or globally"""
-    storage_instance: Storage = ctx.obj
+    storage_instance: BaseStorage = ctx.obj
     start_time = time.time()
     console.print(f"searching for '{value}'...")
 
