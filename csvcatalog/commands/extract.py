@@ -1,3 +1,4 @@
+import csv
 from pathlib import Path
 from typing import Annotated
 
@@ -9,6 +10,10 @@ from rich.table import Table
 from ..storage import BaseStorage
 
 console = Console()
+
+# Constants for batch processing
+BATCH_SIZE = 10_000
+FILE_SIZE_THRESHOLD_MB = 50
 
 
 def extract(
@@ -29,33 +34,29 @@ def extract(
     console.print(f"starting extraction for '{file_path}'")
     storage_instance: BaseStorage = ctx.obj
 
-    # initial preview
-    try:
-        with file_path.open("r", encoding="utf-8-sig") as f:
-            raw_lines = [line.strip() for i, line in enumerate(f) if i < 5]
-        if not raw_lines:
-            console.print("[red]file appears to be empty[/red]")
-            raise typer.Abort()
-        console.print("\n[bold]raw preview:[/bold]")
-        for line in raw_lines:
-            console.print(line)
-    except Exception as e:
-        console.print(f"[red]could not read file: {e}[/red]")
-        raise typer.Abort()
-
     # set separator
     separator = questionary.text("enter csv separator:", default=",").unsafe_ask()
     if not separator:
         console.print("[red]aborted[/red]")
         raise typer.Abort()
 
-    # define columns
+    # define columns and preview using csv module
     try:
-        with file_path.open("r", encoding="utf-8-sig") as f:
-            csv_headers = f.readline().strip().split(separator)
+        with file_path.open("r", encoding="utf-8-sig", newline="") as f:
+            reader = csv.reader(f, delimiter=separator)
+            csv_headers = next(reader)
+            preview_rows = [row for i, row in enumerate(reader) if i < 5]
+    except StopIteration:
+        console.print("[red]file appears to be empty or has only a header[/red]")
+        raise typer.Abort()
     except Exception as e:
         console.print(f"[red]could not read file: {e}[/red]")
         raise typer.Abort()
+
+    console.print("\n[bold]raw preview:[/bold]")
+    console.print(separator.join(csv_headers))
+    for row in preview_rows:
+        console.print(separator.join(row))
 
     console.print("\n[bold]define database column names for each csv header[/bold]")
     console.print("press enter to accept the default name")
@@ -90,32 +91,25 @@ def extract(
 
     # preview data
     console.print("\n[bold]preview of data to be imported:[/bold]")
-    try:
-        with file_path.open("r", encoding="utf-8-sig") as f:
-            lines = [line.strip().split(separator) for i, line in enumerate(f) if i < 6]
+    header_to_idx = {header: i for i, header in enumerate(csv_headers)}
+    data_to_preview = []
+    for line in preview_rows:
+        row_data = {}
+        for csv_header, column_name in column_map.items():
+            if column_name in columns_to_import:
+                idx = header_to_idx.get(csv_header)
+                if idx is not None and idx < len(line):
+                    row_data[column_name] = line[idx]
+        if row_data:
+            data_to_preview.append(row_data)
 
-        if len(lines) > 1:
-            header_to_idx = {header: i for i, header in enumerate(csv_headers)}
-            data_to_preview = []
-            for line in lines[1:]:
-                row_data = {}
-                for csv_header, column_name in column_map.items():
-                    if column_name in columns_to_import:
-                        idx = header_to_idx.get(csv_header)
-                        if idx is not None and idx < len(line):
-                            row_data[column_name] = line[idx]
-                if row_data:
-                    data_to_preview.append(row_data)
-
-            if data_to_preview:
-                table = Table(show_header=True, header_style="bold magenta")
-                for col in columns_to_import:
-                    table.add_column(col)
-                for row in data_to_preview:
-                    table.add_row(*(row.get(col, "") for col in columns_to_import))
-                console.print(table)
-    except Exception as e:
-        console.print(f"[red]could not generate preview: {e}[/red]")
+    if data_to_preview:
+        table = Table(show_header=True, header_style="bold magenta")
+        for col in columns_to_import:
+            table.add_column(col)
+        for row in data_to_preview:
+            table.add_row(*(row.get(col, "") for col in columns_to_import))
+        console.print(table)
 
     # summary
     console.print("\n[bold]summary[/bold]")
@@ -137,28 +131,36 @@ def extract(
         console.print("starting extraction...")
         storage_instance.create_table(table_name, columns_to_import)
 
-        header_to_idx = {header: i for i, header in enumerate(csv_headers)}
+        with file_path.open("r", encoding="utf-8-sig", newline="") as f:
+            reader = csv.reader(f, delimiter=separator)
+            next(reader)  # skip header
 
-        with file_path.open("r", encoding="utf-8-sig") as f:
-            f.readline()  # skip header
-
-            values_to_save = []
-            for line in f:
-                if not line.strip():
+            batch = []
+            total_saved = 0
+            for _, row_parts in enumerate(reader):
+                if not row_parts:
                     continue
-                parts = line.strip().split(separator)
                 row_data = {}
                 for csv_header, column_name in column_map.items():
                     if column_name in columns_to_import:
                         idx = header_to_idx.get(csv_header)
-                        if idx is not None and idx < len(parts):
-                            row_data[column_name] = parts[idx]
+                        if idx is not None and idx < len(row_parts):
+                            row_data[column_name] = row_parts[idx]
                 if row_data:
-                    values_to_save.append(row_data)
+                    batch.append(row_data)
 
-            if values_to_save:
-                storage_instance.save(table_name, values_to_save)
-        console.print("[green]extraction complete[/green]")
+                if len(batch) >= BATCH_SIZE:
+                    storage_instance.save(table_name, batch)
+                    total_saved += len(batch)
+                    console.print(f"  ... saved {total_saved} rows")
+                    batch.clear()
+
+            if batch:
+                storage_instance.save(table_name, batch)
+                total_saved += len(batch)
+
+        console.print(f"[green]extraction complete. saved {total_saved} rows.[/green]")
+
     except Exception as e:
         console.print(f"[red]an error occurred during extraction: {e}[/red]")
         raise typer.Abort()
