@@ -6,10 +6,10 @@ a simple cli tool for wrangling csv files and shoving them into a sqlite databas
 
 tired of messing around with csvs and databases separately? me too. that's why i built catalog. it's a simple, no-nonsense tool that lets you:
 
-*   **import csv files** into a sqlite database with an interactive wizard
-*   **search your data** with a powerful, flexible query syntax
-*   **export your data** back to csv whenever you need it
-*   **manage your database** with a set of easy-to-use commands
+*   **import csv files** into a sqlite database with an interactive wizard.
+*   **search your data** with a powerful, flexible query syntax.
+*   **export your data** back to csv whenever you need it.
+*   **manage your database** with a set of easy-to-use commands.
 
 all output is beautifully formatted using `rich` 💅.
 
@@ -32,6 +32,7 @@ csvcatalog tables
 by default, the database is stored in a user-specific data directory. you can specify a custom database file with the `dbfile` command:
 
 ```bash
+# Optional
 csvcatalog dbfile /path/to/your/database.db
 ```
 
@@ -46,6 +47,7 @@ csvcatalog dbfile /path/to/your/database.db
 *   `export <table_name>`: export a table to a csv file, with an interactive prompt to select columns and limit rows.
 *   `delete <table_name>`: delete a table from the database.
 *   `purge`: delete all tables from the database.
+*   `dbfile`: change database file to another location.
 
 ### the mighty `search` command
 
