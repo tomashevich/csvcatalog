@@ -23,16 +23,16 @@ pip install csvcatalog
 
 2.  run a command
 
-the basic structure is `csvcatalog [OPTIONS] COMMAND [ARGS]`. for example, to see all tables:
+the basic structure is `csvcatalog COMMAND [ARGS]`. for example, to see all tables:
 
 ```bash
 csvcatalog tables
 ```
 
-by default, the database is stored in a user-specific data directory. you can specify a custom database file with the `--db` option:
+by default, the database is stored in a user-specific data directory. you can specify a custom database file with the `dbfile` command:
 
 ```bash
-csvcatalog --db /path/to/your/database.db tables
+csvcatalog dbfile /path/to/your/database.db
 ```
 
 ## Commands 🕹️

@@ -93,8 +93,8 @@ class Storage:
 
         all_results: dict[str, list[dict[str, Any]]] = {}
         search_pattern = f"%{value}%"
-        
-        all_tables = None # lazy load
+
+        all_tables = None  # lazy load
 
         for target in targets:
             table_name: str | None = None
@@ -104,7 +104,7 @@ class Storage:
                 table_name, column_name = target.split(".", 1)
             else:
                 table_name = target
-            
+
             if table_name == "*":
                 if all_tables is None:
                     all_tables = self.get_tables()
@@ -112,7 +112,7 @@ class Storage:
             else:
                 table = self.get_table(table_name)
                 if not table:
-                    continue # Or raise error? For now, skip.
+                    continue  # Or raise error? For now, skip
                 tables_to_search = [table]
 
             for t in tables_to_search:
@@ -122,20 +122,20 @@ class Storage:
                         columns_to_search.append(column_name)
                 else:
                     columns_to_search = t.columns
-                
+
                 if not columns_to_search:
                     continue
 
                 query = f'SELECT * FROM "{t.name}" WHERE {" OR ".join(f'"{c}" LIKE ?' for c in columns_to_search)}'
                 params = [search_pattern] * len(columns_to_search)
-                
+
                 try:
                     self.cur.execute(query, params)
                     rows = self.cur.fetchall()
                     if rows:
                         if t.name not in all_results:
                             all_results[t.name] = []
-                        
+
                         # simple deduplication
                         for row in rows:
                             if dict(row) not in all_results[t.name]:

@@ -2,11 +2,11 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from platformdirs import user_data_dir
 from rich.console import Console
 from typer import Context
 
-from . import __version__, storage
+from . import __version__, config, storage
+from .commands.dbfile import dbfile
 from .commands.delete import delete
 from .commands.export import export
 from .commands.extract import extract
@@ -25,31 +25,26 @@ def version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
-def get_db_path(db_path: str | None = None) -> Path:
-    if db_path:
-        return Path(db_path)
-
-    data_dir = Path(user_data_dir("csvcatalog", "tomashevich"))
-    data_dir.mkdir(parents=True, exist_ok=True)
-    return data_dir / "catalog.db"
-
-
 @app.callback()
 def main(
     ctx: Context,
-    db_path: Annotated[
-        str | None,
-        typer.Option(
-            help="path to the database file",
-        ),
-    ] = None,
     version: Annotated[
         bool | None,
         typer.Option("--version", callback=version_callback, is_eager=True),
     ] = None,
 ):
     """a command-line interface tool for managing csv catalogs"""
-    ctx.obj = storage.Storage(get_db_path(db_path))
+    # the dbfile command handles its own logic and does not need a storage object
+    if ctx.invoked_subcommand == "dbfile":
+        return
+
+    settings = config.load_config()
+    if "db_path" in settings:
+        final_db_path = Path(settings["db_path"])
+    else:
+        final_db_path = config.get_data_dir() / "catalog.db"
+
+    ctx.obj = storage.Storage(final_db_path)
 
 
 app.command()(extract)
@@ -59,6 +54,7 @@ app.command()(purge)
 app.command()(sql)
 app.command()(export)
 app.command()(search)
+app.command()(dbfile)
 
 
 if __name__ == "__main__":
