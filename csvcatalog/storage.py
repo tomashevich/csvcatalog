@@ -125,49 +125,41 @@ class SqliteStorage(BaseStorage):
             targets = [t.name for t in self.get_tables()]
 
         search_pattern = f"%{value}%"
-
         all_tables_map = None  # lazy load
-
         select_queries = []
         all_params = []
 
         for target in targets:
-            table_name: str | None = None
-            column_name: str | None = None
+            table_name, column_name = (
+                target.split(".", 1) if "." in target else (target, None)
+            )
 
-            if "." in target:
-                table_name, column_name = target.split(".", 1)
-            else:
-                table_name = target
-
-            tables_to_search = []
             if table_name == "*":
                 if all_tables_map is None:
                     all_tables_map = {t.name: t for t in self.get_tables()}
                 tables_to_search = list(all_tables_map.values())
             else:
                 table = self.get_table(table_name)
-                if not table:
-                    continue
-                tables_to_search = [table]
+                tables_to_search = [table] if table else []
+
+            if not tables_to_search:
+                continue
 
             for t in tables_to_search:
-                columns_to_search = []
-                if column_name:
-                    if column_name == "*":
-                        columns_to_search = t.columns
-                    elif column_name in t.columns:
-                        columns_to_search.append(column_name)
-                else:
+                if not column_name:
                     columns_to_search = t.columns
+                elif column_name == "*":
+                    columns_to_search = t.columns
+                elif column_name in t.columns:
+                    columns_to_search = [column_name]
+                else:
+                    columns_to_search = []
 
                 if not columns_to_search:
                     continue
 
-                # need to select all columns for UNIONs, but can do it more good that it shit
                 all_cols_select = ", ".join(f'"{c}"' for c in t.columns)
                 where_clause = " OR ".join(f'"{c}" LIKE ?' for c in columns_to_search)
-
                 query = f"SELECT '{t.name}' as source_table, {all_cols_select} FROM \"{t.name}\" WHERE {where_clause}"
                 select_queries.append(query)
                 all_params.extend([search_pattern] * len(columns_to_search))
@@ -176,7 +168,6 @@ class SqliteStorage(BaseStorage):
             return {}
 
         full_query = " UNION ALL ".join(select_queries)
-
         all_results: dict[str, list[dict[str, Any]]] = {}
         seen_rows_by_table: dict[str, set[tuple]] = {}
 
@@ -192,11 +183,12 @@ class SqliteStorage(BaseStorage):
                     all_results[source_table] = []
                     seen_rows_by_table[source_table] = set()
 
-                # for hashable row
                 row_tuple = tuple(row_dict.items())
-                if row_tuple not in seen_rows_by_table[source_table]:
-                    all_results[source_table].append(row_dict)
-                    seen_rows_by_table[source_table].add(row_tuple)
+                if row_tuple in seen_rows_by_table[source_table]:
+                    continue
+
+                all_results[source_table].append(row_dict)
+                seen_rows_by_table[source_table].add(row_tuple)
 
         except sqlite3.Error as e:
             print(f"error during search: {e}")

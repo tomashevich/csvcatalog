@@ -81,9 +81,7 @@ def extract(
             confirm_encoding = questionary.confirm(
                 f"is '{current_encoding}' the correct encoding for the preview?"
             ).unsafe_ask()
-            if confirm_encoding:
-                break
-            else:
+            if not confirm_encoding:
                 new_encoding = questionary.text(
                     "enter new encoding (e.g., utf-8, utf-8-sig, latin-1):",
                     default=current_encoding,
@@ -92,6 +90,8 @@ def extract(
                     console.print("[red]aborted[/red]")
                     raise typer.Abort()
                 current_encoding = new_encoding
+                continue
+            break
         except typer.BadParameter as e:
             console.print(f"[red]error: {e}[/red]")
             new_encoding = questionary.text(
@@ -143,12 +143,16 @@ def extract(
     for line in preview_rows:
         row_data = {}
         for csv_header, column_name in column_map.items():
-            if column_name in columns_to_import:
-                idx = header_to_idx.get(csv_header)
-                if idx is not None and idx < len(line):
-                    row_data[column_name] = line[idx]
-        if row_data:
-            data_to_preview.append(row_data)
+            if column_name not in columns_to_import:
+                continue
+            idx = header_to_idx.get(csv_header)
+            if idx is None or idx >= len(line):
+                continue
+            row_data[column_name] = line[idx]
+
+        if not row_data:
+            continue
+        data_to_preview.append(row_data)
 
     if data_to_preview:
         table = Table(show_header=True, header_style="bold magenta")
@@ -166,8 +170,9 @@ def extract(
     console.print(f"  columns:    {', '.join(columns_to_import)}")
     console.print("[bold]column mapping:[/bold]")
     for csv_h, db_f in column_map.items():
-        if db_f in columns_to_import:
-            console.print(f"  - '{csv_h}' -> '{db_f}'")
+        if db_f not in columns_to_import:
+            continue
+        console.print(f"  - '{csv_h}' -> '{db_f}'")
 
     if not questionary.confirm("proceed with extraction?").unsafe_ask():
         console.print("[red]aborted[/red]")
@@ -187,20 +192,30 @@ def extract(
             for _, row_parts in enumerate(reader):
                 if not row_parts:
                     continue
+
                 row_data = {}
                 for csv_header, column_name in column_map.items():
-                    if column_name in columns_to_import:
-                        idx = header_to_idx.get(csv_header)
-                        if idx is not None and idx < len(row_parts):
-                            row_data[column_name] = row_parts[idx]
-                if row_data:
-                    batch.append(row_data)
+                    if column_name not in columns_to_import:
+                        continue
 
-                if len(batch) >= BATCH_SIZE:
-                    storage_instance.save(table_name, batch)
-                    total_saved += len(batch)
-                    console.print(f"  ... saved {total_saved} rows")
-                    batch.clear()
+                    idx = header_to_idx.get(csv_header)
+                    if idx is None or idx >= len(row_parts):
+                        continue
+
+                    row_data[column_name] = row_parts[idx]
+
+                if not row_data:
+                    continue
+
+                batch.append(row_data)
+
+                if len(batch) < BATCH_SIZE:
+                    continue
+
+                storage_instance.save(table_name, batch)
+                total_saved += len(batch)
+                console.print(f"  ... saved {total_saved} rows")
+                batch.clear()
 
             if batch:
                 storage_instance.save(table_name, batch)

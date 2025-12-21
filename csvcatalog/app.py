@@ -38,11 +38,9 @@ def main(
         return
 
     settings = config.load_config()
-    if settings.db_path:
-        final_db_path = settings.db_path
-    else:
-        final_db_path = config.get_data_dir() / "catalog.db"
-
+    final_db_path = (
+        settings.db_path if settings.db_path else config.get_data_dir() / "catalog.db"
+    )
     ctx.obj = storage.SqliteStorage(final_db_path)
 
 
