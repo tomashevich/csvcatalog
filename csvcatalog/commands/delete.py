@@ -15,9 +15,12 @@ def delete(
 ):
     """delete a table"""
     storage_instance: BaseStorage = ctx.obj
-    if not questionary.confirm(
+    
+    confirmed = questionary.confirm(
         f"are you sure you want to delete table '{table_name}'?"
-    ).unsafe_ask():
+    ).ask()
+
+    if not confirmed:
         console.print("[red]aborted[/red]")
         raise typer.Abort()
 

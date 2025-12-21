@@ -55,7 +55,7 @@ def extract(
     storage_instance: BaseStorage = ctx.obj
 
     # set separator
-    separator = questionary.text("enter csv separator:", default=",").unsafe_ask()
+    separator = questionary.text("enter csv separator:", default=",").ask()
     if not separator:
         console.print("[red]aborted[/red]")
         raise typer.Abort()
@@ -80,12 +80,16 @@ def extract(
 
             confirm_encoding = questionary.confirm(
                 f"is '{current_encoding}' the correct encoding for the preview?"
-            ).unsafe_ask()
+            ).ask()
+            if confirm_encoding is None:
+                console.print("[red]aborted[/red]")
+                raise typer.Abort()
+
             if not confirm_encoding:
                 new_encoding = questionary.text(
                     "enter new encoding (e.g., utf-8, utf-8-sig, latin-1):",
                     default=current_encoding,
-                ).unsafe_ask()
+                ).ask()
                 if not new_encoding:
                     console.print("[red]aborted[/red]")
                     raise typer.Abort()
@@ -97,7 +101,7 @@ def extract(
             new_encoding = questionary.text(
                 "enter new encoding (e.g., utf-8, utf-8-sig, latin-1):",
                 default=current_encoding,
-            ).unsafe_ask()
+            ).ask()
             if not new_encoding:
                 console.print("[red]aborted[/red]")
                 raise typer.Abort()
@@ -112,7 +116,7 @@ def extract(
     for header in csv_headers:
         column_name = questionary.text(
             f"  csv header '{header}' -> column name:", default=header
-        ).unsafe_ask()
+        ).ask()
         if not column_name:
             console.print("[red]aborted[/red]")
             raise typer.Abort()
@@ -122,7 +126,7 @@ def extract(
     columns_to_import = questionary.checkbox(
         "select the columns you want to import",
         choices=list(column_map.values()),
-    ).unsafe_ask()
+    ).ask()
     if not columns_to_import:
         console.print("[red]no columns selected, aborting[/red]")
         raise typer.Abort()
@@ -131,7 +135,7 @@ def extract(
     default_table_name = file_path.stem.strip()
     table_name = questionary.text(
         "enter table name:", default=default_table_name
-    ).unsafe_ask()
+    ).ask()
     if not table_name:
         console.print("[red]aborted[/red]")
         raise typer.Abort()
@@ -174,7 +178,8 @@ def extract(
             continue
         console.print(f"  - '{csv_h}' -> '{db_f}'")
 
-    if not questionary.confirm("proceed with extraction?").unsafe_ask():
+    proceed = questionary.confirm("proceed with extraction?").ask()
+    if not proceed:
         console.print("[red]aborted[/red]")
         raise typer.Abort()
 

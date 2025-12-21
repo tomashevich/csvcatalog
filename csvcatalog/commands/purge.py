@@ -10,9 +10,12 @@ console = Console()
 def purge(ctx: typer.Context):
     """clear the entire database"""
     storage_instance: BaseStorage = ctx.obj
-    if not questionary.confirm(
+
+    confirmed = questionary.confirm(
         "are you sure you want to clear the entire database?"
-    ).unsafe_ask():
+    ).ask()
+
+    if not confirmed:
         console.print("[red]aborted[/red]")
         raise typer.Abort()
 

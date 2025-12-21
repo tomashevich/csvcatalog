@@ -24,14 +24,19 @@ def export(
     columns_to_export = questionary.checkbox(
         f"select columns to export from '{table_name}'",
         choices=table.columns,
-    ).unsafe_ask()
+    ).ask()
     if not columns_to_export:
         console.print("[red]no columns selected, aborting[/red]")
         raise typer.Abort()
 
     limit_str = questionary.text(
         f"how many rows to export? (all/{table.count})", default="all"
-    ).unsafe_ask()
+    ).ask()
+
+    if limit_str is None:
+        console.print("[red]aborted[/red]")
+        raise typer.Abort()
+
     limit = -1
     if limit_str.lower() != "all":
         try:
@@ -45,7 +50,7 @@ def export(
     default_filename = f"{table_name}.csv"
     output_filename = questionary.text(
         "enter filename for export:", default=default_filename
-    ).unsafe_ask()
+    ).ask()
     if not output_filename:
         output_filename = default_filename
     if not output_filename.lower().endswith(".csv"):
