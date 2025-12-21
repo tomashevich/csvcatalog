@@ -1,8 +1,14 @@
 import json
 from pathlib import Path
-from typing import Any
 
 from platformdirs import user_data_dir
+from pydantic import BaseModel, ValidationError
+
+
+class Settings(BaseModel):
+    """defines the application settings model"""
+
+    db_path: Path | None = None
 
 
 def get_data_dir() -> Path:
@@ -17,20 +23,22 @@ def get_config_path() -> Path:
     return get_data_dir() / "settings.json"
 
 
-def load_config() -> dict[str, Any]:
-    """loads the settings from settings.json, returning an empty dict if it doesnt exist"""
+def load_config() -> Settings:
+    """loads the settings from settings.json, returning default settings if it doesnt exist or is invalid"""
     config_path = get_config_path()
     if not config_path.exists():
-        return {}
+        return Settings()
+
     with config_path.open("r") as f:
         try:
-            return json.load(f)
-        except json.JSONDecodeError:
-            return {}
+            data = json.load(f)
+            return Settings(**data)
+        except (json.JSONDecodeError, ValidationError):
+            return Settings()
 
 
-def save_config(config: dict[str, Any]) -> None:
-    """saves the given dictionary to settings.json"""
+def save_config(settings: Settings) -> None:
+    """saves the given settings model to settings.json"""
     config_path = get_config_path()
     with config_path.open("w") as f:
-        json.dump(config, f, indent=4)
+        f.write(settings.model_dump_json(indent=4))

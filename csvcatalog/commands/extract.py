@@ -48,9 +48,7 @@ def extract(
             resolve_path=True,
         ),
     ],
-    encoding: Annotated[
-        str, typer.Option(help="encoding of the csv file")
-    ] = "utf-8",
+    encoding: Annotated[str, typer.Option(help="encoding of the csv file")] = "utf-8",
 ):
     """run interactive wizard to extract data from a csv file"""
     console.print(f"starting extraction for '{file_path}'")

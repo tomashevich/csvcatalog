@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -39,8 +38,8 @@ def main(
         return
 
     settings = config.load_config()
-    if "db_path" in settings:
-        final_db_path = Path(settings["db_path"])
+    if settings.db_path:
+        final_db_path = settings.db_path
     else:
         final_db_path = config.get_data_dir() / "catalog.db"
 

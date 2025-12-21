@@ -22,13 +22,12 @@ def dbfile(
     settings = config.load_config()
 
     if new_path:
-        settings["db_path"] = str(new_path)
+        settings.db_path = new_path
         config.save_config(settings)
         console.print(f"[green]default database path updated to: {new_path}[/green]")
     else:
-        db_path_str = settings.get("db_path")
-        if db_path_str:
-            console.print(f"current database path: {db_path_str}")
+        if settings.db_path:
+            console.print(f"current database path: {settings.db_path}")
         else:
             default_path = config.get_data_dir() / "catalog.db"
             console.print(f"no default path set - using default: {default_path}")
