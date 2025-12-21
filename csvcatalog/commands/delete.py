@@ -15,7 +15,7 @@ def delete(
 ):
     """delete a table"""
     storage_instance: BaseStorage = ctx.obj
-    
+
     confirmed = questionary.confirm(
         f"are you sure you want to delete table '{table_name}'?"
     ).ask()

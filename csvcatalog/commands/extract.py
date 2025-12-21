@@ -133,9 +133,7 @@ def extract(
 
     # table name
     default_table_name = file_path.stem.strip()
-    table_name = questionary.text(
-        "enter table name:", default=default_table_name
-    ).ask()
+    table_name = questionary.text("enter table name:", default=default_table_name).ask()
     if not table_name:
         console.print("[red]aborted[/red]")
         raise typer.Abort()

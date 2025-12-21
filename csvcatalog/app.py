@@ -24,12 +24,17 @@ def version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
-@app.callback()
+@app.callback(invoke_without_command=True)
 def main(
     ctx: Context,
     version: Annotated[
         bool | None,
-        typer.Option("--version", callback=version_callback, is_eager=True),
+        typer.Option(
+            "--version",
+            callback=version_callback,
+            is_eager=True,
+            help="show version and exit",
+        ),
     ] = None,
 ):
     """a command-line interface tool for managing csv catalogs"""
@@ -41,7 +46,10 @@ def main(
     final_db_path = (
         settings.db_path if settings.db_path else config.get_data_dir() / "catalog.db"
     )
-    ctx.obj = storage.SqliteStorage(final_db_path)
+
+    storage_instance = storage.SqliteStorage(final_db_path)
+    ctx.obj = storage_instance
+    ctx.call_on_close(storage_instance.close)
 
 
 app.command()(extract)
