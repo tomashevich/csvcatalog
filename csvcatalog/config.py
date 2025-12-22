@@ -9,6 +9,7 @@ class Settings(BaseModel):
     """defines the application settings model"""
 
     db_path: Path | None = None
+    encryption: bool = False
 
 
 def get_data_dir() -> Path:

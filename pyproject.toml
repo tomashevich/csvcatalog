@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "csvcatalog"
-version = "2.4"
+version = "2.5"
 description = "tool for creating catalog from .csv tables in sqlite storage"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -12,6 +12,7 @@ keywords = ["csv", "catalog", "sqlite", "storage", "data", "dump"]
 license = "MIT"
 dependencies = [
     "platformdirs>=4.5.1",
+    "pycryptodome>=3.23.0",
     "pydantic>=2.12.5",
     "questionary>=2.1.1",
     "rich>=14.2.0",

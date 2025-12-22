@@ -11,8 +11,6 @@ tired of messing around with csvs and databases separately? me too. that's why i
 *   **export your data** back to csv whenever you need it.
 *   **manage your database** with a set of easy-to-use commands.
 
-all output is beautifully formatted using `rich` 💅.
-
 ## Getting Started 🚀
 
 1.  install
@@ -40,6 +38,7 @@ csvcatalog dbfile /path/to/your/database.db
 
 `typer` provides help for all commands. just run `csvcatalog --help` or `csvcatalog <command> --help`.
 
+*   `--help`: get detailed help and command list 
 *   `extract <file.csv>`: run an interactive wizard to import a csv file into the database. you'll be prompted to set the separator, rename columns, select columns to import, and name the table.
 *   `tables`: list all tables in the database, with their columns and row counts.
 *   `search <value> [targets...]`: search for a value. this is the most powerful command.
@@ -47,7 +46,9 @@ csvcatalog dbfile /path/to/your/database.db
 *   `export <table_name>`: export a table to a csv file, with an interactive prompt to select columns and limit rows.
 *   `delete <table_name>`: delete a table from the database.
 *   `purge`: delete all tables from the database.
-*   `dbfile`: change database file to another location.
+*   `settings --help`: settings help.
+*   `settings dbfile <path/to/storage.db>`: set custom db path.
+*   `settings encryption <true/false>`: enable encryption
 
 ### the mighty `search` command
 
