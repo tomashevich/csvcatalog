@@ -24,14 +24,27 @@ pip install csvcatalog
 the basic structure is `csvcatalog COMMAND [ARGS]`. for example, to see all tables:
 
 ```bash
-csvcatalog tables
+csvcatalog --help
 ```
 
 by default, the database is stored in a user-specific data directory. you can specify a custom database file with the `dbfile` command:
 
 ```bash
 # Optional
-csvcatalog dbfile /path/to/your/database.db
+csvcatalog settings dbfile /path/to/your/database.db
+```
+
+you can setup aes256 encryption for database file
+
+```bash
+# Optional
+csvcatalog settings encryption true
+```
+
+3.  extract your csv data table
+
+```bash
+csvcatalog extract path/to/my/data.csv
 ```
 
 ## Commands 🕹️
@@ -39,7 +52,7 @@ csvcatalog dbfile /path/to/your/database.db
 `typer` provides help for all commands. just run `csvcatalog --help` or `csvcatalog <command> --help`.
 
 *   `--help`: get detailed help and command list 
-*   `extract <file.csv>`: run an interactive wizard to import a csv file into the database. you'll be prompted to set the separator, rename columns, select columns to import, and name the table.
+*   `extract <file.csv> <Optional: --encoding name>`: run an interactive wizard to import a csv file into the database. you'll be prompted to set the separator, rename columns, select columns to import, and name the table with file encoding.
 *   `tables`: list all tables in the database, with their columns and row counts.
 *   `search <value> [targets...]`: search for a value. this is the most powerful command.
 *   `sql "<query>"`: execute a raw sql query on the database.
