@@ -10,8 +10,12 @@ console = Console()
 
 def describe(
     ctx: typer.Context,
-    table_name: Annotated[str, typer.Argument(help="the name of the table to describe")],
-    description: Annotated[str, typer.Argument(help="the description to add to the table")],
+    table_name: Annotated[
+        str, typer.Argument(help="the name of the table to describe")
+    ],
+    description: Annotated[
+        str, typer.Argument(help="the description to add to the table")
+    ],
 ):
     """adds or updates a description for a table"""
     storage_instance: BaseStorage = ctx.obj
