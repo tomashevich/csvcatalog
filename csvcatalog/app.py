@@ -78,7 +78,6 @@ def main(
         storage_instance.close()
 
         if temp_db_file and password and settings.encryption:
-            console.print(f"saving and encrypting database to '{db_path}'...")
             temp_db_file.seek(0)
             plaintext_bytes = temp_db_file.read()
             crypto.encrypt_bytes_to_file(plaintext_bytes, db_path, password)
