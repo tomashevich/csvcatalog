@@ -115,6 +115,7 @@ class SqliteStorage(BaseStorage):
             f'DELETE FROM "{META_TABLE_NAME}" WHERE table_name = ?', (name,)
         )
         self.con.commit()
+        self.cur.execute("VACUUM")
 
     def purge_database(self) -> None:
         """deletes all user tables and clears the metadata table"""
@@ -123,6 +124,7 @@ class SqliteStorage(BaseStorage):
             self.cur.execute(f'DROP TABLE IF EXISTS "{table.name}"')
         self.cur.execute(f'DELETE FROM "{META_TABLE_NAME}"')
         self.con.commit()
+        self.cur.execute("VACUUM")
 
     def get_table(self, name: str) -> Table | None:
         """retrieves metadata for a single table from the meta table"""
