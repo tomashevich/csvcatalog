@@ -60,7 +60,9 @@ class BaseStorage(ABC):
     ) -> dict[str, list[dict[str, Any]]]: ...
 
     @abstractmethod
-    def sql(self, query: str) -> list[dict[str, Any]]: ...
+    def sql(
+        self, query: str, params: list[Any] | None = None
+    ) -> list[dict[str, Any]]: ...
 
     @abstractmethod
     def close(self) -> None: ...
@@ -75,6 +77,14 @@ class SqliteStorage(BaseStorage):
         self.con.row_factory = sqlite3.Row
         self.cur = self.con.cursor()
         self._init_meta_table()
+
+        def regexp(expr, item):
+            if item is None:
+                return False
+            reg = re.compile(expr)
+            return reg.search(str(item)) is not None
+
+        self.con.create_function("REGEXP", 2, regexp)
 
     def _init_meta_table(self) -> None:
         """ensures the metadata table exists"""
@@ -272,9 +282,11 @@ class SqliteStorage(BaseStorage):
 
         return all_results
 
-    def sql(self, query: str) -> list[dict[str, Any]]:
+    def sql(self, query: str, params: list[Any] | None = None) -> list[dict[str, Any]]:
         """executes a raw sql query"""
-        self.cur.execute(query)
+        if params is None:
+            params = []
+        self.cur.execute(query, params)
         rows = self.cur.fetchall()
         self.con.commit()
         return [dict(row) for row in rows]
