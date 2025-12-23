@@ -60,6 +60,7 @@ csvcatalog extract path/to/my/data.csv
 *   `delete <table_name>`: delete a table from the database.
 *   `purge`: delete all tables from the database.
 *   `settings --help`: settings help.
+*   `settings show`: show current settings
 *   `settings dbfile <path/to/storage.db>`: set custom db path.
 *   `settings encryption <true/false>`: enable encryption
 
