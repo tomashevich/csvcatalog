@@ -138,6 +138,12 @@ def extract(
         console.print("[red]aborted[/red]")
         raise typer.Abort()
 
+    # table description
+    description = questionary.text("enter table description:", default="no").ask()
+    if description is None:  # if user presses ctrl+c
+        console.print("[red]aborted[/red]")
+        raise typer.Abort()
+
     # preview data
     console.print("\n[bold]preview of data to be imported:[/bold]")
     header_to_idx = {header: i for i, header in enumerate(csv_headers)}
@@ -168,6 +174,9 @@ def extract(
     console.print("\n[bold]summary[/bold]")
     console.print(f"  file:       {file_path}")
     console.print(f"  table:      {table_name}")
+    console.print(
+        f"  description:{description if description != 'no' else '[grey50]noription[/grey50]'} "
+    )
     console.print(f"  separator:  '{separator}'")
     console.print(f"  columns:    {', '.join(columns_to_import)}")
     console.print("[bold]column mapping:[/bold]")
@@ -185,6 +194,8 @@ def extract(
     try:
         console.print("starting extraction...")
         storage_instance.create_table(table_name, columns_to_import)
+        if description != "no":
+            storage_instance.update_description(table_name, description)
 
         with file_path.open("r", encoding=final_encoding, newline="") as f:
             reader = csv.reader(f, delimiter=separator)

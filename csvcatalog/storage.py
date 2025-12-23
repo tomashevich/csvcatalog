@@ -1,8 +1,21 @@
+import json
+import re
 import sqlite3
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+# a simple regex to validate table/column names
+IDENTIFIER_REGEX = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+META_TABLE_NAME = "_csvcatalog_meta_"
+
+
+def _validate_identifier(identifier: str):
+    """raises valueerror if the identifier is not valid and safe"""
+    if not IDENTIFIER_REGEX.match(identifier):
+        raise ValueError(f"invalid identifier: '{identifier}'")
 
 
 @dataclass
@@ -10,10 +23,15 @@ class Table:
     name: str
     columns: list[str]
     count: int
+    created_at: str
+    description: str | None
 
 
 class BaseStorage(ABC):
     """abstract base class for storage operations"""
+
+    @abstractmethod
+    def _init_meta_table(self) -> None: ...
 
     @abstractmethod
     def create_table(self, name: str, columns: list[str]) -> None: ...
@@ -32,6 +50,9 @@ class BaseStorage(ABC):
 
     @abstractmethod
     def save(self, table: str, data: list[dict[str, Any]]) -> None: ...
+
+    @abstractmethod
+    def update_description(self, table_name: str, description: str) -> None: ...
 
     @abstractmethod
     def search(
@@ -53,68 +74,119 @@ class SqliteStorage(BaseStorage):
         self.con = sqlite3.connect(database_path)
         self.con.row_factory = sqlite3.Row
         self.cur = self.con.cursor()
+        self._init_meta_table()
 
-    def create_table(self, name: str, columns: list[str]) -> None:
-        """creates a new table in the database with specified columns"""
-        query = f'CREATE TABLE IF NOT EXISTS "{name}" ({", ".join(f'"{c}" TEXT' for c in columns)})'
+    def _init_meta_table(self) -> None:
+        """ensures the metadata table exists"""
+        query = f"""
+        CREATE TABLE IF NOT EXISTS "{META_TABLE_NAME}" (
+            table_name TEXT PRIMARY KEY,
+            columns TEXT NOT NULL,
+            row_count INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            description TEXT
+        )
+        """
         self.cur.execute(query)
         self.con.commit()
 
+    def create_table(self, name: str, columns: list[str]) -> None:
+        """creates a new table and registers it in the metadata table"""
+        _validate_identifier(name)
+        for col in columns:
+            _validate_identifier(col)
+
+        query = f'CREATE TABLE IF NOT EXISTS "{name}" ({", ".join(f'"{c}" TEXT' for c in columns)})'
+        self.cur.execute(query)
+
+        meta_query = f"""
+        INSERT OR REPLACE INTO "{META_TABLE_NAME}" (table_name, columns, row_count, created_at)
+        VALUES (?, ?, 0, ?)
+        """
+        now = datetime.utcnow().isoformat()
+        self.cur.execute(meta_query, (name, json.dumps(columns), now))
+        self.con.commit()
+
     def delete_table(self, name: str) -> None:
-        """deletes a table from the database"""
+        """deletes a table and its metadata entry"""
+        _validate_identifier(name)
         self.cur.execute(f'DROP TABLE IF EXISTS "{name}"')
+        self.cur.execute(
+            f'DELETE FROM "{META_TABLE_NAME}" WHERE table_name = ?', (name,)
+        )
         self.con.commit()
 
     def purge_database(self) -> None:
-        """deletes all tables from the database"""
+        """deletes all user tables and clears the metadata table"""
         tables = self.get_tables()
         for table in tables:
-            self.delete_table(table.name)
+            self.cur.execute(f'DROP TABLE IF EXISTS "{table.name}"')
+        self.cur.execute(f'DELETE FROM "{META_TABLE_NAME}"')
+        self.con.commit()
 
     def get_table(self, name: str) -> Table | None:
-        """retrieves metadata for a single table"""
+        """retrieves metadata for a single table from the meta table"""
+        _validate_identifier(name)
         self.cur.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (name,)
+            f'SELECT * FROM "{META_TABLE_NAME}" WHERE table_name = ?', (name,)
         )
-        if not self.cur.fetchone():
+        row = self.cur.fetchone()
+        if not row:
             return None
-
-        self.cur.execute(f'PRAGMA table_info("{name}")')
-        columns = [col["name"] for col in self.cur.fetchall()]
-
-        self.cur.execute(f'SELECT COUNT(*) FROM "{name}"')
-        count = self.cur.fetchone()[0]
-        return Table(name, columns, count)
+        return Table(
+            name=row["table_name"],
+            columns=json.loads(row["columns"]),
+            count=row["row_count"],
+            created_at=row["created_at"],
+            description=row["description"],
+        )
 
     def get_tables(self) -> list[Table]:
-        """retrieves a list of all tables in the database with their columns and row counts"""
-        self.cur.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
-        )
-        table_names = [row["name"] for row in self.cur.fetchall()]
-
-        tables = []
-        for name in table_names:
-            self.cur.execute(f'PRAGMA table_info("{name}")')
-            columns = [col["name"] for col in self.cur.fetchall()]
-
-            self.cur.execute(f'SELECT COUNT(*) FROM "{name}"')
-            count = self.cur.fetchone()[0]
-            tables.append(Table(name, columns, count))
-
-        return tables
+        """retrieves a list of all tables from the meta table"""
+        self.cur.execute(f'SELECT * FROM "{META_TABLE_NAME}"')
+        return [
+            Table(
+                name=row["table_name"],
+                columns=json.loads(row["columns"]),
+                count=row["row_count"],
+                created_at=row["created_at"],
+                description=row["description"],
+            )
+            for row in self.cur.fetchall()
+        ]
 
     def save(self, table: str, data: list[dict[str, Any]]) -> None:
-        """saves a list of dictionaries as rows into the specified table"""
+        """saves data to a table and updates the row count in metadata"""
+        _validate_identifier(table)
         if not data:
             return
 
         columns = list(data[0].keys())
+        for col in columns:
+            _validate_identifier(col)
+
         placeholders = ", ".join(["?"] * len(columns))
         query = f'INSERT INTO "{table}" ({", ".join(f'"{c}"' for c in columns)}) VALUES ({placeholders})'
 
         values = [tuple(row.get(c, None) for c in columns) for row in data]
         self.cur.executemany(query, values)
+
+        # update row count
+        self.cur.execute(f'SELECT COUNT(*) FROM "{table}"')
+        count = self.cur.fetchone()[0]
+        self.cur.execute(
+            f'UPDATE "{META_TABLE_NAME}" SET row_count = ? WHERE table_name = ?',
+            (count, table),
+        )
+        self.con.commit()
+
+    def update_description(self, table_name: str, description: str) -> None:
+        """updates the description for a given table in the metadata"""
+        _validate_identifier(table_name)
+        self.cur.execute(
+            f'UPDATE "{META_TABLE_NAME}" SET description = ? WHERE table_name = ?',
+            (description, table_name),
+        )
         self.con.commit()
 
     def search(
@@ -130,6 +202,9 @@ class SqliteStorage(BaseStorage):
         all_params = []
 
         for target in targets:
+            _validate_identifier(target.split(".", 1)[0].replace("*", "all"))
+            if "." in target:
+                _validate_identifier(target.split(".", 1)[1].replace("*", "all"))
             table_name, column_name = (
                 target.split(".", 1) if "." in target else (target, None)
             )

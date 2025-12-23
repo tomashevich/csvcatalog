@@ -17,10 +17,15 @@ def tables(ctx: typer.Context):
 
     table = Table(show_header=True, header_style="bold magenta")
     table.add_column("name")
-    table.add_column("columns")
+    table.add_column("columns", max_width=50)
+    table.add_column("description", max_width=50)
     table.add_column("rows")
+    table.add_column("created at")
 
     for t in db_tables:
-        table.add_row(t.name, ", ".join(t.columns), str(t.count))
+        description = t.description if t.description else "[grey50]n/a[/grey50]"
+        table.add_row(
+            t.name, ", ".join(t.columns), description, str(t.count), t.created_at
+        )
 
     console.print(table)

@@ -15,6 +15,7 @@ from .commands.purge import purge
 from .commands.search import search
 from .commands.sql import sql
 from .commands.tables import tables
+from .commands.describe import describe
 
 app = typer.Typer()
 console = Console()
@@ -96,6 +97,7 @@ app.command()(purge)
 app.command()(sql)
 app.command()(export)
 app.command()(search)
+app.command()(describe)
 
 
 if __name__ == "__main__":
