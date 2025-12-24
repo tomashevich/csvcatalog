@@ -1,5 +1,5 @@
 import time
-from typing import Annotated, List
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -14,13 +14,14 @@ def search(
     ctx: typer.Context,
     value: Annotated[str, typer.Argument(help="The value to search for")],
     targets: Annotated[
-        List[str],
+        list[str] | None,
         typer.Argument(
             help="Optional list of targets to search in (e.g., 'table1', 'table2.col1', '*.col2')"
         ),
-    ] = [],
+    ] = None,
 ):
     """search for a value in specified tables/columns or globally"""
+    targets = targets if targets is not None else []
     storage_instance: BaseStorage = ctx.obj
     start_time = time.time()
     console.print(f"searching for '{value}'...")
@@ -51,4 +52,4 @@ def search(
 
     except Exception as e:
         console.print(f"[red]error during search: {e}[/red]")
-        raise typer.Abort()
+        raise typer.Abort() from e

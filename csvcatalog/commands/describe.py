@@ -24,7 +24,7 @@ def describe(
         console.print(f"description for table '{table_name}' updated")
     except ValueError as e:
         console.print(f"[red]error: {e}[/red]")
-        raise typer.Abort()
+        raise typer.Abort() from e
     except Exception as e:
         console.print(f"[red]an unexpected error occurred: {e}[/red]")
-        raise typer.Abort()
+        raise typer.Abort() from e

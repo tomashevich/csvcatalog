@@ -28,4 +28,4 @@ def delete(
         console.print(f"[green]table '{table_name}' deleted successfully[/green]")
     except Exception as e:
         console.print(f"[red]error deleting table: {e}[/red]")
-        raise typer.Abort()
+        raise typer.Abort() from e

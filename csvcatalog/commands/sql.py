@@ -30,4 +30,4 @@ def sql(
 
     except Exception as e:
         console.print(f"[red]error executing sql: {e}[/red]")
-        raise typer.Abort()
+        raise typer.Abort() from e

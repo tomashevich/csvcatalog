@@ -26,13 +26,15 @@ def _get_csv_data(
             preview_rows = [row for i, row in enumerate(reader) if i < 5]
         return csv_headers, preview_rows
     except StopIteration:
-        raise typer.BadParameter("file appears to be empty or has only a header")
+        raise typer.BadParameter(
+            "file appears to be empty or has only a header"
+        ) from None
     except UnicodeDecodeError as e:
         raise typer.BadParameter(
             f"could not decode file with '{encoding}' encoding: {e}"
-        )
+        ) from e
     except Exception as e:
-        raise typer.BadParameter(f"could not read file: {e}")
+        raise typer.BadParameter(f"could not read file: {e}") from e
 
 
 def extract(
@@ -104,7 +106,7 @@ def extract(
             ).ask()
             if not new_encoding:
                 console.print("[red]aborted[/red]")
-                raise typer.Abort()
+                raise typer.Abort() from None
             current_encoding = new_encoding
 
     final_encoding = current_encoding
@@ -239,4 +241,4 @@ def extract(
 
     except Exception as e:
         console.print(f"[red]an error occurred during extraction: {e}[/red]")
-        raise typer.Abort()
+        raise typer.Abort() from e

@@ -9,13 +9,13 @@ from typer import Context
 from . import __version__, config, crypto, storage
 from .commands import settings as settings_app
 from .commands.delete import delete
+from .commands.describe import describe
 from .commands.export import export
 from .commands.extract import extract
 from .commands.purge import purge
 from .commands.search import search
 from .commands.sql import sql
 from .commands.tables import tables
-from .commands.describe import describe
 
 app = typer.Typer()
 console = Console()
@@ -40,7 +40,7 @@ def _setup_encrypted_storage(db_path: Path):
         return storage_path, password, temp_db_file
     except ValueError as e:
         console.print(f"[red]error: {e}[/red]")
-        raise typer.Abort()
+        raise typer.Abort() from e
 
 
 @app.callback(invoke_without_command=True)

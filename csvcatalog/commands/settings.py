@@ -100,4 +100,4 @@ def encryption(
 
     except ValueError as e:
         console.print(f"[red]error: {e}[/red]")
-        raise typer.Abort()
+        raise typer.Abort() from e

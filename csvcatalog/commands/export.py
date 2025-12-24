@@ -126,4 +126,4 @@ def export(
         )
     except Exception as e:
         console.print(f"[red]error during export: {e}[/red]")
-        raise typer.Abort()
+        raise typer.Abort() from e

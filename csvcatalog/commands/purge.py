@@ -22,4 +22,4 @@ def purge(ctx: typer.Context):
         console.print("[green]database purged successfully[/green]")
     except Exception as e:
         console.print(f"[red]error purging database: {e}[/red]")
-        raise typer.Abort()
+        raise typer.Abort() from e
