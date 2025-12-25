@@ -34,7 +34,7 @@ wheels = [
 
 [[package]]
 name = "csvcatalog"
-version = "2.8"
+version = "2.9"
 source = { editable = "." }
 dependencies = [
     { name = "platformdirs" },

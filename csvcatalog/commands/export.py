@@ -1,5 +1,5 @@
 import csv
-from typing import Annotated
+from typing import Annotated, Any
 
 import questionary
 import typer
@@ -12,62 +12,69 @@ from ..storage import BaseStorage
 console = Console()
 
 
-def export(
-    ctx: typer.Context,
-    table_name: Annotated[str, typer.Argument(help="the name of the table to export")],
-):
-    """export a table to a csv file"""
-    storage_instance: BaseStorage = ctx.obj
+def _define_filters_loop(columns_to_export: list[str]) -> dict[str, str]:
+    """runs the interactive loop to define regex filters for a set of columns"""
+    filters: dict[str, str] = {}
+    while True:
+        choices = [col for col in columns_to_export if col not in filters] + ["Done"]
+        column_to_filter = questionary.select(
+            "select a column to filter (or 'done'):", choices=choices
+        ).ask()
+
+        if column_to_filter is None:
+            raise typer.Abort()
+        if column_to_filter == "Done":
+            break
+
+        regex_filter = questionary.text(
+            f"enter regex filter for '{column_to_filter}':"
+        ).ask()
+        if regex_filter is None:
+            raise typer.Abort()
+        filters[column_to_filter] = regex_filter
+    return filters
+
+
+def _prompt_for_filters(columns_to_export: list[str]) -> dict[str, str]:
+    """prompts user if they want to add filters, and if so, runs the filter definition loop"""
+    if not questionary.confirm("add filters?", default=False).ask():
+        return {}
+    return _define_filters_loop(columns_to_export)
+
+
+def _configure_table_for_export(
+    storage_instance: BaseStorage, table_name: str
+) -> dict[str, Any]:
+    """runs the full interactive configuration for exporting a single table"""
     table = storage_instance.get_table(table_name)
     if not table:
         console.print(f"[red]table '{table_name}' not found[/red]")
         raise typer.Abort()
 
-    choices = [Choice(col, checked=True) for col in table.columns]
+    # 1 select columns
+    col_choices = [Choice(col, checked=True) for col in table.columns]
     columns_to_export = questionary.checkbox(
         f"select columns to export from '{table_name}'",
-        choices=choices,
+        choices=col_choices,
     ).ask()
     if not columns_to_export:
         console.print("[red]no columns selected, aborting[/red]")
         raise typer.Abort()
 
-    # filter loop
-    filters: dict[str, str] = {}
-    if questionary.confirm("do you want to add filters?", default=False).ask():
-        while True:
-            choices = [col for col in columns_to_export if col not in filters] + [
-                "Done"
-            ]
-            column_to_filter = questionary.select(
-                "select a column to filter (or 'done'):", choices=choices
-            ).ask()
+    # 2 define filters
+    filters = _prompt_for_filters(columns_to_export)
 
-            if column_to_filter is None:
-                console.print("[red]aborted[/red]")
-                raise typer.Abort()
-            if column_to_filter == "Done":
-                break
-
-            regex_filter = questionary.text(
-                f"enter regex filter for '{column_to_filter}':"
-            ).ask()
-            if regex_filter is None:
-                console.print("[red]aborted[/red]")
-                raise typer.Abort()
-            filters[column_to_filter] = regex_filter
-
-    # ask for unique rows
+    # 3 ask for unique rows
     export_distinct = questionary.confirm(
         "export only unique rows?", default=False
     ).ask()
 
+    # 4 get limit
     limit_str = questionary.text(
         f"how many rows to export? (all/{table.count})", default="all"
     ).ask()
 
     if limit_str is None:
-        console.print("[red]aborted[/red]")
         raise typer.Abort()
 
     limit = -1
@@ -77,9 +84,10 @@ def export(
             if limit < 0:
                 raise ValueError
         except ValueError:
-            console.print("[red]invalid input, exporting all rows[/red]")
+            console.print("[red]invalid input, using 'all'[/red]")
             limit = -1
 
+    # 5 get filename
     default_filename = f"{table_name}.csv"
     output_filename = questionary.text(
         "enter filename for export:", default=default_filename
@@ -89,6 +97,25 @@ def export(
     if not output_filename.lower().endswith(".csv"):
         output_filename += ".csv"
 
+    return {
+        "table_name": table_name,
+        "columns": columns_to_export,
+        "filters": filters,
+        "distinct": export_distinct,
+        "limit": limit,
+        "output_filename": output_filename,
+    }
+
+
+def _execute_export(storage_instance: BaseStorage, export_config: dict[str, Any]):
+    """executes the export query and writes the results to a csv file"""
+    table_name = export_config["table_name"]
+    columns_to_export = export_config["columns"]
+    filters = export_config["filters"]
+    export_distinct = export_config["distinct"]
+    limit = export_config["limit"]
+    output_filename = export_config["output_filename"]
+
     # build query
     select_keyword = "SELECT DISTINCT" if export_distinct else "SELECT"
     columns_str = ", ".join(f'"{c}"' for c in columns_to_export)
@@ -96,7 +123,7 @@ def export(
     params = []
 
     if filters:
-        console.print("\n[bold]filters applied:[/bold]")
+        console.print(f"\n[bold]filters for '{table_name}':[/bold]")
         where_clauses = []
         for col, regex in filters.items():
             console.print(
@@ -112,8 +139,10 @@ def export(
     try:
         results = storage_instance.sql(query, params)
         if not results:
-            console.print("[yellow]no data found with the given filters[/yellow]")
-            raise typer.Abort()
+            console.print(
+                f"[yellow]no data found for '{table_name}' with the given filters[/yellow]"
+            )
+            return
 
         with open(output_filename, "w", newline="", encoding="utf-8") as csvfile:
             writer = csv.writer(csvfile)
@@ -122,8 +151,91 @@ def export(
                 writer.writerow(row.values())
 
         console.print(
-            f"\n[green]successfully exported {len(results)} rows to '{output_filename}'[/green]"
+            f"[green]successfully exported {len(results)} rows to '{output_filename}'[/green]"
         )
     except Exception as e:
-        console.print(f"[red]error during export: {e}[/red]")
-        raise typer.Abort() from e
+        console.print(f"[red]error during export of '{output_filename}': {e}[/red]")
+        # no abort here to allow other tables in bulk export to continue
+
+
+def export(
+    ctx: typer.Context,
+    table_names: Annotated[
+        list[str] | None,
+        typer.Argument(help="the name of the table(s) to export"),
+    ] = None,
+):
+    """export one or more tables to csv files"""
+    storage_instance: BaseStorage = ctx.obj
+    tables_to_export = table_names
+
+    if not tables_to_export:
+        all_tables = storage_instance.get_tables()
+        if not all_tables:
+            console.print("[yellow]no tables found in database[/yellow]")
+            raise typer.Abort()
+
+        choices = [Choice(table.name, checked=True) for table in all_tables]
+        selected_tables = questionary.checkbox(
+            "select tables to export (space to select/deselect, enter to confirm)",
+            choices=choices,
+        ).ask()
+
+        if selected_tables is None:  # User cancelled with Ctrl+C
+            console.print("[red]aborted[/red]")
+            raise typer.Abort()
+
+        tables_to_export = selected_tables
+
+    if not tables_to_export:
+        console.print("[red]no tables selected, aborting[/red]")
+        raise typer.Abort()
+
+    if len(tables_to_export) == 1:
+        config = _configure_table_for_export(storage_instance, tables_to_export[0])
+        _execute_export(storage_instance, config)
+    else:
+        # for multiple tables, start with default configs
+        export_configs = {}
+        for name in tables_to_export:
+            table = storage_instance.get_table(name)
+            if not table:
+                console.print(f"[yellow]table '{name}' not found, skipping[/yellow]")
+                continue
+            export_configs[name] = {
+                "table_name": name,
+                "columns": table.columns,
+                "filters": {},
+                "distinct": False,
+                "limit": -1,
+                "output_filename": f"{name}.csv",
+            }
+
+        # loop to allow user to fully configure specific tables
+        while True:
+            choices = list(export_configs.keys()) + ["continue to export"]
+            table_to_configure = questionary.select(
+                "select a table to configure, or continue to export:",
+                choices=choices,
+            ).ask()
+
+            if table_to_configure is None:
+                raise typer.Abort()
+            if table_to_configure == "continue to export":
+                break
+
+            console.print(f"\nrunning interactive setup for '{table_to_configure}'...")
+            # Run the full interactive configuration for the selected table
+            new_config = _configure_table_for_export(
+                storage_instance, table_to_configure
+            )
+            # Update the configuration for that table
+            export_configs[table_to_configure] = new_config
+            console.print(
+                f"[green]export settings for '{table_to_configure}' updated[/green]\n"
+            )
+
+        console.print(f"\nstarting bulk export for {len(export_configs)} tables...")
+        for config in export_configs.values():
+            _execute_export(storage_instance, config)
+        console.print("\n[bold green]bulk export complete[/bold green]")

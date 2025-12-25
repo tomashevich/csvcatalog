@@ -56,7 +56,7 @@ csvcatalog extract path/to/my/data.csv
 *   `tables`: list all tables in the database, with their columns and row counts.
 *   `search <value> [targets...]`: search for a value. this is the most powerful command.
 *   `sql "<query>"`: execute a raw sql query on the database.
-*   `export <table_name>`: export a table to a csv file, with an interactive prompt to select columns and limit rows.
+*   `export <optional: table_name>`: export a table to a csv file, with an interactive prompt to select columns and limit rows.
 *   `delete <table_name>`: delete a table from the database.
 *   `purge`: delete all tables from the database.
 *   `settings --help`: settings help.
