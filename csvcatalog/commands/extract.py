@@ -1,18 +1,32 @@
 import csv
+import re
 from pathlib import Path
 from typing import Annotated
 
 import questionary
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
+from .. import utils
 from ..storage import BaseStorage
 
 console = Console()
 
 # constants for batch processing
 BATCH_SIZE = 10_000
+
+
+def _row_is_filtered_out(row_data: dict[str, str], filters: dict[str, str]) -> bool:
+    """returns true if the row should be skipped based on the defined filters"""
+    if not filters:
+        return False
+    for col, pattern in filters.items():
+        value_to_check = row_data.get(col, "")
+        if not re.search(pattern, value_to_check):
+            return True  # skip row if any filter does not match
+    return False
 
 
 def _get_csv_data(
@@ -133,6 +147,9 @@ def extract(
         console.print("[red]no columns selected, aborting[/red]")
         raise typer.Abort()
 
+    # define filters
+    filters = utils.prompt_for_filters(columns_to_import)
+
     # table name
     default_table_name = file_path.stem.strip()
     table_name = questionary.text("enter table name:", default=default_table_name).ask()
@@ -160,7 +177,7 @@ def extract(
                 continue
             row_data[column_name] = line[idx]
 
-        if not row_data:
+        if not row_data or _row_is_filtered_out(row_data, filters):
             continue
         data_to_preview.append(row_data)
 
@@ -171,6 +188,10 @@ def extract(
         for row in data_to_preview:
             table.add_row(*(row.get(col, "") for col in columns_to_import))
         console.print(table)
+    else:
+        console.print(
+            "[yellow]no data to preview (all 5 preview rows were filtered out)[/yellow]"
+        )
 
     # summary
     console.print("\n[bold]summary[/bold]")
@@ -186,6 +207,14 @@ def extract(
         if db_f not in columns_to_import:
             continue
         console.print(f"  - '{csv_h}' -> '{db_f}'")
+    if filters:
+        console.print(
+            "[bold]filters to apply (only matching rows will be imported):[/bold]"
+        )
+        for col, regex in filters.items():
+            console.print(
+                f"  - [cyan]{col}[/cyan] must match regex -> [magenta]'{escape(regex)}'[/magenta]"
+            )
 
     proceed = questionary.confirm("proceed with extraction?").ask()
     if not proceed:
@@ -205,6 +234,7 @@ def extract(
 
             batch = []
             total_saved = 0
+            filtered_out_count = 0
             for _, row_parts in enumerate(reader):
                 if not row_parts:
                     continue
@@ -223,6 +253,10 @@ def extract(
                 if not row_data:
                     continue
 
+                if _row_is_filtered_out(row_data, filters):
+                    filtered_out_count += 1
+                    continue
+
                 batch.append(row_data)
 
                 if len(batch) < BATCH_SIZE:
@@ -237,7 +271,9 @@ def extract(
                 storage_instance.save(table_name, batch)
                 total_saved += len(batch)
 
-        console.print(f"[green]extraction complete. saved {total_saved} rows.[/green]")
+        console.print(
+            f"[green]extraction complete. saved {total_saved} rows.[/green] ({filtered_out_count} rows filtered out)"
+        )
 
     except Exception as e:
         console.print(f"[red]an error occurred during extraction: {e}[/red]")
