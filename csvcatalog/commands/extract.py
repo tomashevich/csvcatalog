@@ -10,6 +10,7 @@ from rich.markup import escape
 from rich.table import Table
 
 from .. import utils
+from ..config import Settings
 from ..storage import BaseStorage
 
 console = Console()
@@ -68,7 +69,8 @@ def extract(
 ):
     """run interactive wizard to extract data from a csv file"""
     console.print(f"starting extraction for '{file_path}'")
-    storage_instance: BaseStorage = ctx.obj
+    storage_instance: BaseStorage = ctx.obj["storage"]
+    settings: Settings = ctx.obj["settings"]
 
     # set separator
     separator = questionary.text("enter csv separator:", default=",").ask()
@@ -148,7 +150,7 @@ def extract(
         raise typer.Abort()
 
     # define filters
-    filters = utils.prompt_for_filters(columns_to_import)
+    filters = utils.prompt_for_filters(columns_to_import, settings)
 
     # table name
     default_table_name = file_path.stem.strip()

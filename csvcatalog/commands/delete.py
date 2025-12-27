@@ -23,7 +23,7 @@ def delete(
         raise typer.Abort()
 
     try:
-        storage_instance: BaseStorage = ctx.obj
+        storage_instance: BaseStorage = ctx.obj["storage"]
         storage_instance.delete_table(table_name)
         console.print(f"[green]table '{table_name}' deleted successfully[/green]")
     except Exception as e:

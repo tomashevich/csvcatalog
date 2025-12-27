@@ -9,9 +9,9 @@ console = Console()
 
 def tables(ctx: typer.Context):
     """list all tables in the database"""
-    storage_instance: BaseStorage = ctx.obj
-    db_tables = storage_instance.get_tables()
-    if not db_tables:
+    storage_instance: BaseStorage = ctx.obj["storage"]
+    tables_data = storage_instance.get_tables()
+    if not tables_data:
         console.print("[yellow]no tables found[/yellow]")
         return
 
@@ -22,7 +22,7 @@ def tables(ctx: typer.Context):
     table.add_column("rows")
     table.add_column("created at")
 
-    for t in db_tables:
+    for t in tables_data:
         description = t.description if t.description else "[grey50]n/a[/grey50]"
         table.add_row(
             t.name, ", ".join(t.columns), description, str(t.count), t.created_at

@@ -8,13 +8,14 @@ from rich.console import Console
 from rich.markup import escape
 
 from .. import utils
+from ..config import Settings
 from ..storage import BaseStorage
 
 console = Console()
 
 
 def _configure_table_for_export(
-    storage_instance: BaseStorage, table_name: str
+    storage_instance: BaseStorage, table_name: str, settings: Settings
 ) -> dict[str, Any]:
     """runs the full interactive configuration for exporting a single table"""
     table = storage_instance.get_table(table_name)
@@ -33,7 +34,7 @@ def _configure_table_for_export(
         raise typer.Abort()
 
     # 2 define filters
-    filters = utils.prompt_for_filters(columns_to_export)
+    filters = utils.prompt_for_filters(columns_to_export, settings)
 
     # 3 ask for unique rows
     export_distinct = questionary.confirm(
@@ -137,7 +138,8 @@ def export(
     ] = None,
 ):
     """export one or more tables to csv files"""
-    storage_instance: BaseStorage = ctx.obj
+    storage_instance: BaseStorage = ctx.obj["storage"]
+    settings: Settings = ctx.obj["settings"]
     tables_to_export = table_names
 
     if not tables_to_export:
@@ -152,7 +154,7 @@ def export(
             choices=choices,
         ).ask()
 
-        if selected_tables is None:  # User cancelled with Ctrl+C
+        if selected_tables is None:  # user cancelled with ctrl+c
             console.print("[red]aborted[/red]")
             raise typer.Abort()
 
@@ -163,7 +165,9 @@ def export(
         raise typer.Abort()
 
     if len(tables_to_export) == 1:
-        config = _configure_table_for_export(storage_instance, tables_to_export[0])
+        config = _configure_table_for_export(
+            storage_instance, tables_to_export[0], settings
+        )
         _execute_export(storage_instance, config)
     else:
         # for multiple tables, start with default configs
@@ -196,11 +200,11 @@ def export(
                 break
 
             console.print(f"\nrunning interactive setup for '{table_to_configure}'...")
-            # Run the full interactive configuration for the selected table
+            # run the full interactive configuration for the selected table
             new_config = _configure_table_for_export(
-                storage_instance, table_to_configure
+                storage_instance, table_to_configure, settings
             )
-            # Update the configuration for that table
+            # update the configuration for that table
             export_configs[table_to_configure] = new_config
             console.print(
                 f"[green]export settings for '{table_to_configure}' updated[/green]\n"

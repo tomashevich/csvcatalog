@@ -14,7 +14,7 @@ def sql(
     query: Annotated[str, typer.Argument(help="The SQL query to execute")],
 ):
     """execute sql command"""
-    storage_instance: BaseStorage = ctx.obj
+    storage_instance: BaseStorage = ctx.obj["storage"]
     try:
         results = storage_instance.sql(query)
         if not results:

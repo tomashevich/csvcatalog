@@ -17,7 +17,7 @@ def purge(ctx: typer.Context):
         raise typer.Abort()
 
     try:
-        storage_instance: BaseStorage = ctx.obj
+        storage_instance: BaseStorage = ctx.obj["storage"]
         storage_instance.purge_database()
         console.print("[green]database purged successfully[/green]")
     except Exception as e:

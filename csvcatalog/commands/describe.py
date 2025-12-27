@@ -18,7 +18,7 @@ def describe(
     ],
 ):
     """adds or updates a description for a table"""
-    storage_instance: BaseStorage = ctx.obj
+    storage_instance: BaseStorage = ctx.obj["storage"]
     try:
         storage_instance.update_description(table_name, description)
         console.print(f"description for table '{table_name}' updated")

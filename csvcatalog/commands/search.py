@@ -22,7 +22,7 @@ def search(
 ):
     """search for a value in specified tables/columns or globally"""
     targets = targets if targets is not None else []
-    storage_instance: BaseStorage = ctx.obj
+    storage_instance: BaseStorage = ctx.obj["storage"]
     start_time = time.time()
     console.print(f"searching for '{value}'...")
 

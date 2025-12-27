@@ -7,6 +7,7 @@ from rich.console import Console
 from typer import Context
 
 from . import __version__, config, crypto, storage
+from .commands import filter as filter_app
 from .commands import settings as settings_app
 from .commands.delete import delete
 from .commands.describe import describe
@@ -72,9 +73,9 @@ def main(
         storage_path, password, temp_db_file = _setup_encrypted_storage(db_path)
 
     storage_instance = storage.SqliteStorage(storage_path)
-    ctx.obj = storage_instance
+    ctx.obj = {"storage": storage_instance, "settings": settings}
 
-    # closes db connection, re-encrypts and delete temp file
+    # closes db connection re-encrypts and delete temp file
     def cleanup():
         storage_instance.close()
 
@@ -90,6 +91,7 @@ def main(
 
 
 app.add_typer(settings_app.app, name="settings")
+app.add_typer(filter_app.app, name="filter")
 app.command()(extract)
 app.command()(tables)
 app.command()(delete)

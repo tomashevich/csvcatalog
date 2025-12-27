@@ -10,6 +10,7 @@ class Settings(BaseModel):
 
     db_path: Path | None = None
     encryption: bool = False
+    filters: dict[str, str] = {}
 
 
 def get_data_dir() -> Path:

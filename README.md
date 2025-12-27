@@ -59,6 +59,9 @@ csvcatalog extract path/to/my/data.csv
 *   `export <optional: table_name>`: export a table to a csv file, with an interactive prompt to select columns and limit rows.
 *   `delete <table_name>`: delete a table from the database.
 *   `purge`: delete all tables from the database.
+*   `filter list`: list all filters to extract or export data
+*   `filter add <name> <regex>`: add filter
+*   `filter remove <name>`: remove filter
 *   `settings --help`: settings help.
 *   `settings show`: show current settings
 *   `settings dbfile <path/to/storage.db>`: set custom db path.
