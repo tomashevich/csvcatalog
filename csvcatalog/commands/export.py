@@ -188,7 +188,7 @@ def export(
 
         # loop to allow user to fully configure specific tables
         while True:
-            choices = list(export_configs.keys()) + ["continue to export"]
+            choices = list(export_configs.keys()) + ["[continue]"]
             table_to_configure = questionary.select(
                 "select a table to configure, or continue to export:",
                 choices=choices,
@@ -196,7 +196,7 @@ def export(
 
             if table_to_configure is None:
                 raise typer.Abort()
-            if table_to_configure == "continue to export":
+            if table_to_configure == "[continue]":
                 break
 
             console.print(f"\nrunning interactive setup for '{table_to_configure}'...")

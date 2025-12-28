@@ -17,7 +17,7 @@ def define_filters_loop(
     while True:
         # select column to apply filter to
         col_choices = [col for col in columns_to_export if col not in filters] + [
-            "Done"
+            "[continue]"
         ]
         column_to_filter = questionary.select(
             "select a column to apply a filter to (or 'done'):", choices=col_choices
@@ -25,7 +25,7 @@ def define_filters_loop(
 
         if column_to_filter is None:
             raise typer.Abort()
-        if column_to_filter == "Done":
+        if column_to_filter == "[continue]":
             break
 
         # select a filter (new or saved)

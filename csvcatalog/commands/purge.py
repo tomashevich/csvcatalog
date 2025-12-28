@@ -13,7 +13,6 @@ def purge(ctx: typer.Context):
         "are you sure you want to clear the entire database?",
         default=False,
     ).ask():
-        console.print("[red]aborted[/red]")
         raise typer.Abort()
 
     try:

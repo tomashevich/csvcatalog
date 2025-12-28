@@ -19,7 +19,6 @@ def delete(
         f"are you sure you want to delete table '{table_name}'?",
         default=False,
     ).ask():
-        console.print("[red]aborted[/red]")
         raise typer.Abort()
 
     try:

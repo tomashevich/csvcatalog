@@ -75,7 +75,6 @@ def extract(
     # set separator
     separator = questionary.text("enter csv separator:", default=",").ask()
     if not separator:
-        console.print("[red]aborted[/red]")
         raise typer.Abort()
 
     current_encoding = encoding
@@ -100,7 +99,6 @@ def extract(
                 f"is '{current_encoding}' the correct encoding for the preview?"
             ).ask()
             if confirm_encoding is None:
-                console.print("[red]aborted[/red]")
                 raise typer.Abort()
 
             if not confirm_encoding:
@@ -109,7 +107,6 @@ def extract(
                     default=current_encoding,
                 ).ask()
                 if not new_encoding:
-                    console.print("[red]aborted[/red]")
                     raise typer.Abort()
                 current_encoding = new_encoding
                 continue
@@ -121,7 +118,6 @@ def extract(
                 default=current_encoding,
             ).ask()
             if not new_encoding:
-                console.print("[red]aborted[/red]")
                 raise typer.Abort() from None
             current_encoding = new_encoding
 
@@ -136,7 +132,6 @@ def extract(
             f"  csv header '{header}' -> column name:", default=header
         ).ask()
         if not column_name:
-            console.print("[red]aborted[/red]")
             raise typer.Abort()
         column_map[header] = column_name
 
@@ -156,13 +151,11 @@ def extract(
     default_table_name = file_path.stem.strip()
     table_name = questionary.text("enter table name:", default=default_table_name).ask()
     if not table_name:
-        console.print("[red]aborted[/red]")
         raise typer.Abort()
 
     # table description
     description = questionary.text("enter table description:", default="no").ask()
     if description is None:  # if user presses ctrl+c
-        console.print("[red]aborted[/red]")
         raise typer.Abort()
 
     # preview data
@@ -220,7 +213,6 @@ def extract(
 
     proceed = questionary.confirm("proceed with extraction?").ask()
     if not proceed:
-        console.print("[red]aborted[/red]")
         raise typer.Abort()
 
     # extraction
