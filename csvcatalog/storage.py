@@ -209,9 +209,8 @@ class SqliteStorage(BaseStorage):
             targets = [t.name for t in self.get_tables()]
 
         search_pattern = f"%{value}%"
+        all_results: dict[str, list[dict[str, Any]]] = {}
         all_tables_map = None  # lazy load
-        select_queries = []
-        all_params = []
 
         for target in targets:
             _validate_identifier(target.split(".", 1)[0].replace("*", "all"))
@@ -245,40 +244,29 @@ class SqliteStorage(BaseStorage):
                 if not columns_to_search:
                     continue
 
-                all_cols_select = ", ".join(f'"{c}"' for c in t.columns)
-                where_clause = " OR ".join(f'"{c}" LIKE ?' for c in columns_to_search)
-                query = f"SELECT '{t.name}' as source_table, {all_cols_select} FROM \"{t.name}\" WHERE {where_clause}"
-                select_queries.append(query)
-                all_params.extend([search_pattern] * len(columns_to_search))
+                # query each table individually to avoid union all errors
+                try:
+                    where_clause = " OR ".join(
+                        f'"{c}" LIKE ?' for c in columns_to_search
+                    )
+                    query = f'SELECT * FROM "{t.name}" WHERE {where_clause}'
+                    params = [search_pattern] * len(columns_to_search)
 
-        if not select_queries:
-            return {}
+                    self.cur.execute(query, params)
+                    rows = self.cur.fetchall()
 
-        full_query = " UNION ALL ".join(select_queries)
-        all_results: dict[str, list[dict[str, Any]]] = {}
-        seen_rows_by_table: dict[str, set[tuple]] = {}
+                    if not rows:
+                        continue
 
-        try:
-            self.cur.execute(full_query, all_params)
-            rows = self.cur.fetchall()
+                    if t.name not in all_results:
+                        all_results[t.name] = []
 
-            for row in rows:
-                row_dict = dict(row)
-                source_table = row_dict.pop("source_table")
+                    for row in rows:
+                        all_results[t.name].append(dict(row))
 
-                if source_table not in all_results:
-                    all_results[source_table] = []
-                    seen_rows_by_table[source_table] = set()
-
-                row_tuple = tuple(row_dict.items())
-                if row_tuple in seen_rows_by_table[source_table]:
-                    continue
-
-                all_results[source_table].append(row_dict)
-                seen_rows_by_table[source_table].add(row_tuple)
-
-        except sqlite3.Error as e:
-            print(f"error during search: {e}")
+                except sqlite3.Error as e:
+                    print(f"error searching in table {t.name}: {e}")
+                    continue  # continue to next table even if one fails
 
         return all_results
 

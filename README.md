@@ -49,23 +49,34 @@ csvcatalog extract path/to/my/data.csv
 
 ## Commands 🕹️
 
-`typer` provides help for all commands. just run `csvcatalog --help` or `csvcatalog <command> --help`.
+`typer` provides help for all commands. just run `csvcatalog --help` or `csvcatalog <command> --help` for more details.
 
-*   `--help`: get detailed help and command list 
-*   `extract <file.csv> <Optional: --encoding name>`: run an interactive wizard to import a csv file into the database. you'll be prompted to set the separator, rename columns, select columns to import, and name the table with file encoding.
+*   `extract <file.csv>`: run an interactive wizard to import a csv file. you can map columns, select which ones to import, and apply regex filters to include/exclude specific rows.
 *   `tables`: list all tables in the database, with their columns and row counts.
-*   `search <value> [targets...]`: search for a value. this is the most powerful command.
-*   `sql "<query>"`: execute a raw sql query on the database.
-*   `export <optional: table_name>`: export a table to a csv file, with an interactive prompt to select columns and limit rows.
+*   `describe <table_name> <description>`: add or update the description for a table.
+*   `search <value> [targets...]`: search for a value across one or more tables and columns.
+*   `export [table_names...]`: export one or more tables to csv files.
+    *   if one table is specified, runs a full interactive wizard.
+    *   if multiple tables are specified (or none, for all tables), runs a bulk export. you can choose to configure filters for specific tables.
 *   `delete <table_name>`: delete a table from the database.
+*   `sql "<query>"`: execute a raw sql query on the database.
 *   `purge`: delete all tables from the database.
-*   `filter list`: list all filters to extract or export data
-*   `filter add <name> <regex>`: add filter
-*   `filter remove <name>`: remove filter
-*   `settings --help`: settings help.
-*   `settings show`: show current settings
-*   `settings dbfile <path/to/storage.db>`: set custom db path.
-*   `settings encryption <true/false>`: enable encryption
+
+### Command Groups
+
+these commands group related functionality.
+
+#### `settings`
+manage application settings. running `csvcatalog settings` will show current settings.
+
+*   `settings dbfile <path>`: set a custom path for the database file.
+*   `settings encryption <true|false>`: enable or disable database encryption.
+
+#### `filters`
+manage saved reusable regex filters for `extract` and `export`. running `csvcatalog filters` will list all saved filters.
+
+*   `filters add <name> <regex>`: create a new named filter.
+*   `filters remove [name]`: remove a filter by name, or run interactively if no name is provided.
 
 ### the mighty `search` command
 

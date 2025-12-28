@@ -3,14 +3,16 @@ from typing import Annotated
 import typer
 from rich.console import Console
 from rich.table import Table
+from typer import Context
 
 from .. import config
 
-app = typer.Typer(invoke_without_command=True)
+app = typer.Typer(
+    invoke_without_command=True, help="manage saved reusable regex filters"
+)
 console = Console()
 
 
-@app.command(name="list")
 def list_filters():
     """lists all saved filters"""
     settings = config.load_config()
@@ -22,6 +24,13 @@ def list_filters():
     for name, pattern in settings.filters.items():
         table.add_row(name, pattern)
     console.print(table)
+
+
+@app.callback(invoke_without_command=True)
+def main(ctx: Context):
+    """manage saved reusable regex filters"""
+    if ctx.invoked_subcommand is None:
+        list_filters()
 
 
 @app.command()

@@ -4,19 +4,18 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from ..storage import BaseStorage
+from .base import CommandBase
 
 console = Console()
 
 
-def sql(
-    ctx: typer.Context,
-    query: Annotated[str, typer.Argument(help="The SQL query to execute")],
-):
-    """execute sql command"""
-    storage_instance: BaseStorage = ctx.obj["storage"]
-    try:
-        results = storage_instance.sql(query)
+class SqlCommand(CommandBase):
+    def execute(
+        self,
+        query: Annotated[str, typer.Argument(help="the sql query to execute")],
+    ):
+        """execute sql command"""
+        results = self.storage.sql(query)
         if not results:
             console.print("[yellow]query returned no results[/yellow]")
             return
@@ -27,7 +26,3 @@ def sql(
         for row in results:
             table.add_row(*(str(v) for v in row.values()))
         console.print(table)
-
-    except Exception as e:
-        console.print(f"[red]error executing sql: {e}[/red]")
-        raise typer.Abort() from e

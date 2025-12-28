@@ -5,29 +5,28 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from ..storage import BaseStorage
+from .base import CommandBase
 
 console = Console()
 
 
-def search(
-    ctx: typer.Context,
-    value: Annotated[str, typer.Argument(help="The value to search for")],
-    targets: Annotated[
-        list[str] | None,
-        typer.Argument(
-            help="Optional list of targets to search in (e.g., 'table1', 'table2.col1', '*.col2')"
-        ),
-    ] = None,
-):
-    """search for a value in specified tables/columns or globally"""
-    targets = targets if targets is not None else []
-    storage_instance: BaseStorage = ctx.obj["storage"]
-    start_time = time.time()
-    console.print(f"searching for '{value}'...")
+class SearchCommand(CommandBase):
+    def execute(
+        self,
+        value: Annotated[str, typer.Argument(help="the value to search for")],
+        targets: Annotated[
+            list[str] | None,
+            typer.Argument(
+                help="optional list of targets to search in (e.g., 'table1', 'table2.col1', '*.col2')"
+            ),
+        ] = None,
+    ):
+        """search for a value in specified tables/columns or globally"""
+        targets = targets if targets is not None else []
+        start_time = time.time()
+        console.print(f"searching for '{value}'...")
 
-    try:
-        results = storage_instance.search(value, targets)
+        results = self.storage.search(value, targets)
         duration = time.time() - start_time
 
         if not results:
@@ -49,7 +48,3 @@ def search(
             for row in rows:
                 rich_table.add_row(*(str(v) for v in row.values()))
             console.print(rich_table)
-
-    except Exception as e:
-        console.print(f"[red]error during search: {e}[/red]")
-        raise typer.Abort() from e
