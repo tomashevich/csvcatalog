@@ -112,10 +112,18 @@ def extract(
 
 
 @app.command()
-def tables(ctx: Context):
+def tables(
+    ctx: Context,
+    description_filter: Annotated[
+        str | None,
+        typer.Argument(
+            help="optional text to filter tables by their description (case-insensitive)"
+        ),
+    ] = None,
+):
     """list all tables in the database"""
     cmd = TablesCommand(ctx.obj["storage"], ctx.obj["settings"])
-    cmd.run()
+    cmd.run(description_filter=description_filter)
 
 
 @app.command()

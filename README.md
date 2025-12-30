@@ -52,7 +52,7 @@ csvcatalog extract path/to/my/data.csv
 `typer` provides help for all commands. just run `csvcatalog --help` or `csvcatalog <command> --help` for more details.
 
 *   `extract <file.csv>`: run an interactive wizard to import a csv file. you can map columns, select which ones to import, and apply regex filters to include/exclude specific rows.
-*   `tables`: list all tables in the database, with their columns and row counts.
+*   `tables <optional: description filter>`: list all tables in the database, with their columns and row counts.
 *   `describe <table_name> <description>`: add or update the description for a table.
 *   `search <value> [targets...]`: search for a value across one or more tables and columns.
 *   `export [table_names...]`: export one or more tables to csv files.
