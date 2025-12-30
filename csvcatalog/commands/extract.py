@@ -5,6 +5,7 @@ from typing import Annotated
 
 import questionary
 import typer
+from questionary import Choice
 from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
@@ -123,31 +124,62 @@ class ExtractCommand(CommandBase):
 
         final_encoding = current_encoding
 
-        console.print("\n[bold]define database column names for each csv header[/bold]")
-        console.print("press enter to accept the default name")
-
-        column_map = {}
-        for header in csv_headers:
-            column_name = questionary.text(
-                f"  csv header '{header}' -> column name:", default=header
-            ).ask()
-            if not column_name:
-                raise typer.Abort()
-            column_map[header] = column_name
-
-        # select columns
-        columns_to_import = questionary.checkbox(
-            "select the columns you want to import",
-            choices=list(column_map.values()),
+        # step 3: select which csv headers to import
+        choices = [Choice(header, checked=True) for header in csv_headers]
+        selected_csv_headers = questionary.checkbox(
+            "select the csv columns you want to import (default all)",
+            choices=choices,
         ).ask()
-        if not columns_to_import:
+        if not selected_csv_headers:
             console.print("[red]no columns selected, aborting[/red]")
             raise typer.Abort()
 
-        # define filters
+        # step 4: define database column names for selected csv headers
+        console.print(
+            "\n[bold]define database column names. by default, the original csv header is used.[/bold]"
+        )
+        # set default mapping
+        column_map = {header: header for header in selected_csv_headers}
+
+        while True:
+            # create choices showing the current mapping
+            mapping_choices = [
+                f"{csv_header} -> {db_name}"
+                for csv_header, db_name in column_map.items()
+            ]
+            mapping_choices.append("[continue]")
+
+            choice_to_edit = questionary.select(
+                "select a column to rename, or continue:", choices=mapping_choices
+            ).ask()
+
+            if choice_to_edit is None:
+                raise typer.Abort()
+            if choice_to_edit == "[continue]":
+                break
+
+            # parse the selected choice to get the original csv header
+            csv_header_to_edit = choice_to_edit.split(" -> ")[0]
+            current_db_name = column_map[csv_header_to_edit]
+
+            new_db_name = questionary.text(
+                f"enter new database column name for '{csv_header_to_edit}':",
+                default=current_db_name,
+            ).ask()
+
+            if not new_db_name:
+                # if user enters empty string, abort or revert? for now, let's abort.
+                console.print("[red]column name cannot be empty. aborting.[/red]")
+                raise typer.Abort()
+
+            column_map[csv_header_to_edit] = new_db_name
+
+        columns_to_import = list(column_map.values())
+
+        # step 5: define filters
         filters = utils.prompt_for_filters(columns_to_import, self.settings)
 
-        # table name
+        # step 6: table name
         default_table_name = file_path.stem.strip()
         table_name = questionary.text(
             "enter table name:", default=default_table_name
@@ -155,7 +187,7 @@ class ExtractCommand(CommandBase):
         if not table_name:
             raise typer.Abort()
 
-        # table description
+        # step 7: table description
         description = questionary.text("enter table description:", default="no").ask()
         if description is None:  # if user presses ctrl+c
             raise typer.Abort()
@@ -167,8 +199,6 @@ class ExtractCommand(CommandBase):
         for line in preview_rows:
             row_data = {}
             for csv_header, column_name in column_map.items():
-                if column_name not in columns_to_import:
-                    continue
                 idx = header_to_idx.get(csv_header)
                 if idx is None or idx >= len(line):
                     continue
@@ -201,8 +231,6 @@ class ExtractCommand(CommandBase):
         console.print(f"  columns:    {', '.join(columns_to_import)}")
         console.print("[bold]column mapping:[/bold]")
         for csv_h, db_f in column_map.items():
-            if db_f not in columns_to_import:
-                continue
             console.print(f"  - '{csv_h}' -> '{db_f}'")
         if filters:
             console.print(
@@ -236,13 +264,9 @@ class ExtractCommand(CommandBase):
 
                 row_data = {}
                 for csv_header, column_name in column_map.items():
-                    if column_name not in columns_to_import:
-                        continue
-
                     idx = header_to_idx.get(csv_header)
                     if idx is None or idx >= len(row_parts):
                         continue
-
                     row_data[column_name] = row_parts[idx]
 
                 if not row_data:
