@@ -52,13 +52,25 @@ class BaseStorage(ABC):
     def get_table(self, name: str) -> Table | None: ...
 
     @abstractmethod
-    def get_tables(self) -> list[Table]: ...
+    def get_tables(
+        self,
+        description_filter: str | None = None,
+        min_rows: int | None = None,
+        created_after: str | None = None,
+        sort_by: str | None = None,
+    ) -> list[Table]: ...
 
     @abstractmethod
     def save(self, table: str, data: list[dict[str, Any]]) -> None: ...
 
     @abstractmethod
     def update_description(self, table_name: str, description: str) -> None: ...
+
+    @abstractmethod
+    def rename_table(self, old_name: str, new_name: str) -> None: ...
+
+    @abstractmethod
+    def update_created_at(self, table_name: str, new_date: str) -> None: ...
 
     @abstractmethod
     def search(
@@ -159,9 +171,39 @@ class SqliteStorage(BaseStorage):
             description=row["description"],
         )
 
-    def get_tables(self) -> list[Table]:
-        """retrieves a list of all tables from the meta table"""
-        self.cur.execute(f'SELECT * FROM "{META_TABLE_NAME}"')
+    def get_tables(
+        self,
+        description_filter: str | None = None,
+        min_rows: int | None = None,
+        created_after: str | None = None,
+        sort_by: str | None = None,
+    ) -> list[Table]:
+        """retrieves a list of all tables from the meta table with optional filters and sorting"""
+        query = f'SELECT * FROM "{META_TABLE_NAME}"'
+        where_clauses = []
+        params = []
+
+        if description_filter:
+            where_clauses.append("description LIKE ?")
+            params.append(f"%{description_filter}%")
+        if min_rows is not None:
+            where_clauses.append("row_count >= ?")
+            params.append(min_rows)
+        if created_after:
+            where_clauses.append("created_at >= ?")
+            params.append(created_after)
+
+        if where_clauses:
+            query += " WHERE " + " AND ".join(where_clauses)
+
+        if sort_by == "rows":
+            query += " ORDER BY row_count ASC"
+        elif sort_by == "date":
+            query += " ORDER BY created_at ASC"
+        else:
+            query += " ORDER BY table_name ASC"
+
+        self.cur.execute(query, params)
         return [
             Table(
                 name=row["table_name"],
@@ -204,6 +246,57 @@ class SqliteStorage(BaseStorage):
         self.cur.execute(
             f'UPDATE "{META_TABLE_NAME}" SET description = ? WHERE table_name = ?',
             (description, table_name),
+        )
+        self.con.commit()
+
+    def rename_table(self, old_name: str, new_name: str) -> None:
+        """renames a table and updates its metadata record"""
+        _validate_identifier(old_name)
+        _validate_identifier(new_name)
+
+        try:
+            # get old metadata
+            meta_row = self.cur.execute(
+                f'SELECT * FROM "{META_TABLE_NAME}" WHERE table_name = ?', (old_name,)
+            ).fetchone()
+            if not meta_row:
+                raise ValueError(f"table '{old_name}' not found in metadata")
+
+            # rename actual table
+            self.cur.execute(f'ALTER TABLE "{old_name}" RENAME TO "{new_name}"')
+
+            # create new metadata record
+            meta_query = f"""
+            INSERT INTO "{META_TABLE_NAME}" (table_name, columns, row_count, created_at, description)
+            VALUES (?, ?, ?, ?, ?)
+            """
+            self.cur.execute(
+                meta_query,
+                (
+                    new_name,
+                    meta_row["columns"],
+                    meta_row["row_count"],
+                    meta_row["created_at"],
+                    meta_row["description"],
+                ),
+            )
+
+            # delete old metadata record
+            self.cur.execute(
+                f'DELETE FROM "{META_TABLE_NAME}" WHERE table_name = ?', (old_name,)
+            )
+
+            self.con.commit()
+        except Exception as e:
+            self.con.rollback()
+            raise e
+
+    def update_created_at(self, table_name: str, new_date: str) -> None:
+        """updates the created_at timestamp for a given table in the metadata"""
+        _validate_identifier(table_name)
+        self.cur.execute(
+            f'UPDATE "{META_TABLE_NAME}" SET created_at = ? WHERE table_name = ?',
+            (new_date, table_name),
         )
         self.con.commit()
 

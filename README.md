@@ -52,8 +52,6 @@ csvcatalog extract path/to/my/data.csv
 `typer` provides help for all commands. just run `csvcatalog --help` or `csvcatalog <command> --help` for more details.
 
 *   `extract <file.csv>`: run an interactive wizard to import a csv file. you can map columns, select which ones to import, and apply regex filters to include/exclude specific rows.
-*   `tables <optional: description filter>`: list all tables in the database, with their columns and row counts.
-*   `describe <table_name> <description>`: add or update the description for a table.
 *   `search <value> [targets...]`: search for a value across one or more tables and columns.
 *   `export [table_names...]`: export one or more tables to csv files.
     *   if one table is specified, runs a full interactive wizard.
@@ -65,6 +63,16 @@ csvcatalog extract path/to/my/data.csv
 ### Command Groups
 
 these commands group related functionality.
+
+#### `tables`
+manage and view tables.
+
+*   `tables list`: list all tables in the database.
+    *   `--description <text>`: filter by text in the description.
+    *   `--rows <min_count>`: filter by minimum row count.
+    *   `--date <yyyy-mm-dd>`: filter by tables created on or after a certain date.
+    *   `--sort <name|rows|date>`: sort the output.
+*   `tables edit [table_name]`: interactively edit a table's metadata (name, description, or date). if `table_name` is omitted, a selector will be shown.
 
 #### `settings`
 manage application settings. running `csvcatalog settings` will show current settings.

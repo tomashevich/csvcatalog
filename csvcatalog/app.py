@@ -9,14 +9,13 @@ from typer import Context
 from . import __version__, config, crypto, storage
 from .commands import filters as filters_app
 from .commands import settings as settings_app
+from .commands import tables
 from .commands.delete import DeleteCommand
-from .commands.describe import DescribeCommand
 from .commands.export import ExportCommand
 from .commands.extract import ExtractCommand
 from .commands.purge import PurgeCommand
 from .commands.search import SearchCommand
 from .commands.sql import SqlCommand
-from .commands.tables import TablesCommand
 
 app = typer.Typer()
 console = Console()
@@ -87,6 +86,7 @@ def main(
 # register command modules that are full typer apps
 app.add_typer(settings_app.app, name="settings")
 app.add_typer(filters_app.app, name="filters")
+app.add_typer(tables.app, name="tables")
 
 
 # define command entrypoints that call methods on the instantiated classes
@@ -109,21 +109,6 @@ def extract(
     """extract data from a csv file and load it into a new table"""
     cmd = ExtractCommand(ctx.obj["storage"], ctx.obj["settings"])
     cmd.run(file_path=file_path, encoding=encoding)
-
-
-@app.command()
-def tables(
-    ctx: Context,
-    description_filter: Annotated[
-        str | None,
-        typer.Argument(
-            help="optional text to filter tables by their description (case-insensitive)"
-        ),
-    ] = None,
-):
-    """list all tables in the database"""
-    cmd = TablesCommand(ctx.obj["storage"], ctx.obj["settings"])
-    cmd.run(description_filter=description_filter)
 
 
 @app.command()
@@ -180,18 +165,3 @@ def search(
     """search for a value in the database"""
     cmd = SearchCommand(ctx.obj["storage"], ctx.obj["settings"])
     cmd.run(value=value, targets=targets)
-
-
-@app.command()
-def describe(
-    ctx: Context,
-    table_name: Annotated[
-        str, typer.Argument(help="the name of the table to describe")
-    ],
-    description: Annotated[
-        str, typer.Argument(help="the description to add to the table")
-    ],
-):
-    """adds or updates a description for a table"""
-    cmd = DescribeCommand(ctx.obj["storage"], ctx.obj["settings"])
-    cmd.run(table_name=table_name, description=description)
