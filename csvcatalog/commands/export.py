@@ -94,12 +94,13 @@ class ExportCommand(CommandBase):
         if filters:
             console.print(f"\n[bold]filters for '{table_name}':[/bold]")
             where_clauses = []
-            for col, regex in filters.items():
-                console.print(
-                    f"  - [cyan]{col}[/cyan] -> [magenta]'{escape(regex)}'[/magenta]"
-                )
-                where_clauses.append(f'"{col}" REGEXP ?')
-                params.append(regex)
+            for col, patterns in filters.items():
+                for regex in patterns:
+                    console.print(
+                        f"  - [cyan]{col}[/cyan] -> [magenta]'{escape(regex)}'[/magenta]"
+                    )
+                    where_clauses.append(f'"{col}" REGEXP ?')
+                    params.append(regex)
             query += " WHERE " + " AND ".join(where_clauses)
 
         if limit != -1:

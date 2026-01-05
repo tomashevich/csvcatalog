@@ -12,6 +12,16 @@ IDENTIFIER_REGEX = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 META_TABLE_NAME = "_csvcatalog_meta_"
 
 
+def sanitize_identifier(identifier: str) -> str:
+    """replaces invalid characters with underscores to create a valid sql identifier"""
+    # replace any non-alphanumeric characters (except underscore) with an underscore
+    sanitized = re.sub(r"[^a-zA-Z0-9_]", "_", identifier)
+    # if the first character is a digit, prepend an underscore
+    if sanitized and sanitized[0].isdigit():
+        sanitized = "_" + sanitized
+    return sanitized
+
+
 def _validate_identifier(identifier: str):
     """raises valueerror if the identifier is not valid and safe"""
     if not IDENTIFIER_REGEX.match(identifier):

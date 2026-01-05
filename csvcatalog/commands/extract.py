@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
-from .. import utils
+from .. import utils, storage
 from .base import CommandBase
 
 console = Console()
@@ -21,15 +21,16 @@ class ExtractCommand(CommandBase):
     BATCH_SIZE = 10_000
 
     def _row_is_filtered_out(
-        self, row_data: dict[str, str], filters: dict[str, str]
+        self, row_data: dict[str, str], filters: dict[str, list[str]]
     ) -> bool:
         """returns true if the row should be skipped based on the defined filters"""
         if not filters:
             return False
-        for col, pattern in filters.items():
+        for col, patterns in filters.items():
             value_to_check = row_data.get(col, "")
-            if not re.search(pattern, value_to_check):
-                return True  # skip row if any filter does not match
+            # all patterns for a given column must match (and condition)
+            if not all(re.search(p, value_to_check) for p in patterns):
+                return True
         return False
 
     def _get_csv_data(
@@ -138,8 +139,11 @@ class ExtractCommand(CommandBase):
         console.print(
             "\n[bold]define database column names. by default, the original csv header is used.[/bold]"
         )
-        # set default mapping
-        column_map = {header: header for header in selected_csv_headers}
+        # set default mapping, sanitizing column names
+        column_map = {
+            header: storage.sanitize_identifier(header)
+            for header in selected_csv_headers
+        }
 
         while True:
             # create choices showing the current mapping
@@ -162,15 +166,21 @@ class ExtractCommand(CommandBase):
             csv_header_to_edit = choice_to_edit.split(" -> ")[0]
             current_db_name = column_map[csv_header_to_edit]
 
-            new_db_name = questionary.text(
+            new_db_name_raw = questionary.text(
                 f"enter new database column name for '{csv_header_to_edit}':",
                 default=current_db_name,
             ).ask()
 
-            if not new_db_name:
+            if not new_db_name_raw:
                 # if user enters empty string, abort or revert? for now, let's abort.
                 console.print("[red]column name cannot be empty. aborting.[/red]")
                 raise typer.Abort()
+
+            new_db_name = storage.sanitize_identifier(new_db_name_raw)
+            if new_db_name != new_db_name_raw:
+                console.print(
+                    f"[yellow]name sanitized to '{new_db_name}'[/yellow]"
+                )
 
             column_map[csv_header_to_edit] = new_db_name
 
@@ -180,12 +190,20 @@ class ExtractCommand(CommandBase):
         filters = utils.prompt_for_filters(columns_to_import, self.settings)
 
         # step 6: table name
-        default_table_name = file_path.stem.strip()
-        table_name = questionary.text(
+        default_table_name = storage.sanitize_identifier(file_path.stem.strip())
+        table_name_raw = questionary.text(
             "enter table name:", default=default_table_name
         ).ask()
-        if not table_name:
+        if not table_name_raw:
             raise typer.Abort()
+
+        table_name = storage.sanitize_identifier(table_name_raw)
+        if table_name != table_name_raw:
+            if not questionary.confirm(
+                f"table name was sanitized to '{table_name}'. continue?",
+                default=True,
+            ).ask():
+                raise typer.Abort()
 
         # step 7: table description
         description = questionary.text("enter table description:", default="no").ask()
@@ -236,10 +254,11 @@ class ExtractCommand(CommandBase):
             console.print(
                 "[bold]filters to apply (only matching rows will be imported):[/bold]"
             )
-            for col, regex in filters.items():
-                console.print(
-                    f"  - [cyan]{col}[/cyan] must match regex -> [magenta]'{escape(regex)}'[/magenta]"
-                )
+            for col, patterns in filters.items():
+                for regex in patterns:
+                    console.print(
+                        f"  - [cyan]{col}[/cyan] must match regex -> [magenta]'{escape(regex)}'[/magenta]"
+                    )
 
         proceed = questionary.confirm("proceed with extraction?").ask()
         if not proceed:

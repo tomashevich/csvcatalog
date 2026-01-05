@@ -11,22 +11,29 @@ console = Console()
 
 def define_filters_loop(
     columns_to_export: list[str], settings: Settings
-) -> dict[str, str]:
+) -> dict[str, list[str]]:
     """runs the interactive loop to define regex filters for a set of columns"""
-    filters: dict[str, str] = {}
+    filters: dict[str, list[str]] = {}
     while True:
-        # select column to apply filter to
-        col_choices = [col for col in columns_to_export if col not in filters] + [
-            "[continue]"
-        ]
-        column_to_filter = questionary.select(
+        # create choices that show which columns already have filters
+        col_choices = []
+        for col in columns_to_export:
+            filter_count = len(filters.get(col, []))
+            label = f"{col} ({filter_count} filter(s))" if filter_count > 0 else col
+            col_choices.append(label)
+        col_choices.append("[continue]")
+
+        # parse the selection to get the clean column name
+        raw_selection = questionary.select(
             "select a column to apply a filter to (or 'done'):", choices=col_choices
         ).ask()
 
-        if column_to_filter is None:
+        if raw_selection is None:
             raise typer.Abort()
-        if column_to_filter == "[continue]":
+        if raw_selection == "[continue]":
             break
+
+        column_to_filter = raw_selection.split(" (")[0]
 
         # select a filter (new or saved)
         filter_choices: list[str | Separator] = ["New one-time regex"]
@@ -61,14 +68,16 @@ def define_filters_loop(
             regex_pattern = settings.filters[selected_filter]
 
         if regex_pattern:
-            filters[column_to_filter] = regex_pattern
+            if column_to_filter not in filters:
+                filters[column_to_filter] = []
+            filters[column_to_filter].append(regex_pattern)
 
     return filters
 
 
 def prompt_for_filters(
     columns_to_export: list[str], settings: Settings
-) -> dict[str, str]:
+) -> dict[str, list[str]]:
     """prompts user if they want to add filters, and if so, runs the filter definition loop"""
     if not questionary.confirm(
         "add filters to include/exclude rows?", default=False
