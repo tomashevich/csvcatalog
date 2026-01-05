@@ -126,6 +126,15 @@ class ExtractCommand(CommandBase):
         if not separator:
             raise typer.Abort()
 
+        # re-read the csv data with the correct separator
+        try:
+            csv_headers, preview_rows = self._get_csv_data(
+                file_path, separator, final_encoding
+            )
+        except typer.BadParameter as e:
+            console.print(f"[red]error reading file with new separator: {e}[/red]")
+            raise typer.Abort() from e
+
         # step 3: select which csv headers to import
         choices = [Choice(header, checked=True) for header in csv_headers]
         selected_csv_headers = questionary.checkbox(
