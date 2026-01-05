@@ -67,6 +67,13 @@ class TablesListCommand(CommandBase):
 
         console.print(rich_table)
 
+        # footer
+        total_tables = len(tables)
+        total_rows = sum(t.count for t in tables)
+        console.print(
+            f"found [bold cyan]{total_tables}[/bold cyan] table(s) with a total of [bold cyan]{total_rows:,}[/bold cyan] rows."
+        )
+
 
 @app.command(name="list")
 def list_tables(

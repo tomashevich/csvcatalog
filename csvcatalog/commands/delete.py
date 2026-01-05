@@ -17,11 +17,15 @@ class DeleteCommand(CommandBase):
         ],
     ):
         """delete a table"""
+        # check if table exists first
+        if not self.storage.get_table(table_name):
+            console.print(f"[red]error: table '{table_name}' not found[/red]")
+            raise typer.Abort()
+
         if not questionary.confirm(
             f"are you sure you want to delete table '{table_name}'?",
             default=False,
         ).ask():
-            console.print("[red]aborted[/red]")
             raise typer.Abort()
 
         self.storage.delete_table(table_name)
