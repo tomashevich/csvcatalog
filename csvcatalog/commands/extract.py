@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
-from .. import utils, storage
+from .. import storage, utils
 from .base import CommandBase
 
 console = Console()
@@ -74,12 +74,8 @@ class ExtractCommand(CommandBase):
         """run interactive wizard to extract data from a csv file"""
         console.print(f"starting extraction for '{file_path}'")
 
-        # set separator
-        separator = questionary.text("enter csv separator:", default=",").ask()
-        if not separator:
-            raise typer.Abort()
-
         current_encoding = encoding
+        separator = ","  # default separator, will be prompted later
         csv_headers: list[str] = []
         preview_rows: list[list[str]] = []
 
@@ -124,6 +120,11 @@ class ExtractCommand(CommandBase):
                 current_encoding = new_encoding
 
         final_encoding = current_encoding
+
+        # set separator
+        separator = questionary.text("enter csv separator:", default=separator).ask()
+        if not separator:
+            raise typer.Abort()
 
         # step 3: select which csv headers to import
         choices = [Choice(header, checked=True) for header in csv_headers]
@@ -178,9 +179,7 @@ class ExtractCommand(CommandBase):
 
             new_db_name = storage.sanitize_identifier(new_db_name_raw)
             if new_db_name != new_db_name_raw:
-                console.print(
-                    f"[yellow]name sanitized to '{new_db_name}'[/yellow]"
-                )
+                console.print(f"[yellow]name sanitized to '{new_db_name}'[/yellow]")
 
             column_map[csv_header_to_edit] = new_db_name
 
