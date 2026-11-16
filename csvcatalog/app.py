@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 from typing import Annotated, cast
 
@@ -71,11 +72,33 @@ def main(
             console.print(f"[red]error: {e}[/red]")
             raise typer.Abort() from e
 
-    storage_instance = storage.SqliteStorage(storage_path)
+    interactive = ctx.invoked_subcommand is None
+    storage_instance: storage.BaseStorage | None
+    db_error: str | None = None
+
+    if interactive and not settings.encryption and not db_path.exists():
+        # the tui will ask for a path instead of silently creating an empty database
+        storage_instance = None
+    else:
+        try:
+            storage_instance = storage.SqliteStorage(storage_path)
+        except Exception as e:
+            if not interactive:
+                console.print(f"[red]error opening database: {e}[/red]")
+                raise typer.Abort() from e
+            storage_instance = None
+            db_error = str(e)
+
     ctx.obj = {"storage": storage_instance, "settings": settings}
+    active_storage: storage.BaseStorage | None = storage_instance
+
+    def update_active_storage(value: storage.BaseStorage | None) -> None:
+        nonlocal active_storage
+        active_storage = value
 
     def cleanup() -> None:
-        storage_instance.close()
+        if active_storage is not None:
+            active_storage.close()
         if temp_db_file and password and settings.encryption:
             _ = temp_db_file.seek(0)
             plaintext_bytes = temp_db_file.read()
@@ -84,6 +107,23 @@ def main(
             temp_db_file.close()
 
     _ = cast(object, ctx.call_on_close(cleanup))
+
+    if interactive:
+        if not (sys.stdin.isatty() and sys.stdout.isatty()):
+            console.print(
+                "[yellow]interactive mode requires a terminal; use --help to see commands[/yellow]"
+            )
+            return
+        # imported lazily so the cli stays fast when textual isn't needed
+        from .tui import run_tui
+
+        run_tui(
+            storage_instance,
+            settings,
+            db_path,
+            db_error=db_error,
+            on_storage_change=update_active_storage,
+        )
 
 
 # register command modules that are full typer apps

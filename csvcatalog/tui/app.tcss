@@ -1,0 +1,702 @@
+/* palette: ink #0b0b0d · surface #101012 · raised #17171a · line #232326
+   text #f5f5f7 · muted #8e8e93 · dim #6e6e73 · accent #0a84ff */
+
+Screen {
+    background: #0b0b0d;
+    color: #f5f5f7;
+}
+
+/* ---- chrome ---------------------------------------------------------- */
+
+#topbar {
+    height: 1;
+    padding: 0 2;
+    background: #0b0b0d;
+}
+
+#brand {
+    width: auto;
+    text-style: bold;
+    color: #f5f5f7;
+}
+
+#path-label {
+    width: 1fr;
+    content-align: right middle;
+    color: #6e6e73;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#topbar.tiny #path-label {
+    display: none;
+}
+
+Footer {
+    height: 1;
+    background: #0b0b0d;
+    color: #8e8e93;
+}
+
+FooterKey .footer-key--key {
+    color: #d1d1d6;
+    background: #17171a;
+    margin-right: 1;
+}
+
+FooterKey .footer-key--description {
+    color: #8e8e93;
+    background: transparent;
+}
+
+#body {
+    height: 1fr;
+    padding: 0 2 1 2;
+}
+
+#tab-bar {
+    height: 2;
+    padding: 0 2;
+    background: #0b0b0d;
+    border-bottom: solid #1c1c1e;
+}
+
+#tab-strip {
+    height: 1;
+    align-vertical: bottom;
+}
+
+.editor-tab {
+    width: auto;
+    max-width: 30;
+    min-width: 8;
+    height: 1;
+    padding: 0 1;
+    color: #6e6e73;
+    background: transparent;
+}
+
+.editor-tab:hover {
+    color: #f5f5f7;
+    background: #141416;
+}
+
+.editor-tab.-active {
+    color: #f5f5f7;
+    background: #1c1c1e;
+    text-style: bold;
+}
+
+#content-switcher {
+    height: 1fr;
+}
+
+/* ---- overview -------------------------------------------------------- */
+
+#overview {
+    height: 1fr;
+    padding-top: 1;
+}
+
+#overview-toolbar {
+    height: 1;
+    margin-bottom: 1;
+    align-vertical: middle;
+}
+
+#overview-footer {
+    height: 3;
+    margin-top: 1;
+    align-vertical: middle;
+    align-horizontal: right;
+}
+
+#overview-actions {
+    layout: horizontal;
+    width: auto;
+    height: 3;
+    align-vertical: middle;
+}
+
+#table-panel {
+    width: 1fr;
+    height: 1fr;
+    min-height: 6;
+    background: #101012;
+    border: round #232326;
+}
+
+#tables {
+    height: 1fr;
+    background: #101012;
+    scrollbar-color: #2c2c2e;
+    scrollbar-background: #101012;
+}
+
+#tables-empty {
+    display: none;
+    height: 1fr;
+    padding: 0 4;
+    content-align: center middle;
+    text-align: center;
+    color: #6e6e73;
+}
+
+#overview-stats {
+    width: 1fr;
+    height: 3;
+    padding: 0 1;
+    color: #6e6e73;
+    content-align: left middle;
+    overflow: hidden;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+}
+
+/* ---- inputs and buttons --------------------------------------------- */
+
+Input {
+    background: #141416;
+    color: #f5f5f7;
+    border: tall #2c2c2e;
+}
+
+Input:focus {
+    border: tall #0a84ff;
+}
+
+Input > .input--placeholder {
+    color: #6e6e73;
+}
+
+Button.-style-default {
+    height: 3;
+    min-height: 3;
+    max-height: 3;
+    min-width: 9;
+    text-style: none;
+    background: #1c1c1e;
+    color: #f5f5f7;
+    border: round #2c2c2e;
+}
+
+Button:hover {
+    background: #2c2c2e;
+}
+
+Button:focus {
+    border: round #0a84ff;
+}
+
+Button.-primary {
+    background: #0a84ff;
+    color: #ffffff;
+    border: round #0a84ff;
+}
+
+Button.-primary:hover {
+    background: #0071e3;
+}
+
+Button.-error {
+    background: #2a1416;
+    color: #ff453a;
+    border: round #5a262a;
+}
+
+Button.-error:hover {
+    background: #3a1a1d;
+}
+
+/* ---- small text actions --------------------------------------------- */
+
+Button.compact-action {
+    height: 1;
+    min-height: 1;
+    max-height: 1;
+    min-width: 0;
+    padding: 0 1;
+    margin-left: 1;
+    border: none;
+    background: transparent;
+    color: #8e8e93;
+    text-style: none;
+}
+
+Button.compact-action:hover {
+    background: #1c1c1e;
+    color: #f5f5f7;
+}
+
+Button.compact-action:focus {
+    border: none;
+    background: #1c1c1e;
+    color: #f5f5f7;
+    text-style: bold;
+}
+
+Button.compact-action.danger {
+    color: #ff453a;
+}
+
+Button.compact-action.accent {
+    color: #0a84ff;
+}
+
+Button.compact-action:disabled {
+    color: #4b4b4f;
+    background: transparent;
+}
+
+Button.pager {
+    width: 3;
+    min-width: 3;
+    max-width: 3;
+    padding: 0;
+    color: #d1d1d6;
+}
+
+/* ---- data tables ----------------------------------------------------- */
+
+DataTable > .datatable--header {
+    background: #101012;
+    color: #8e8e93;
+    text-style: bold;
+}
+
+DataTable > .datatable--even-row {
+    background: #131315;
+}
+
+DataTable > .datatable--cursor {
+    background: #17171a;
+    color: #f5f5f7;
+}
+
+DataTable:focus > .datatable--cursor {
+    background: #123a5c;
+    color: #ffffff;
+}
+
+DataTable > .datatable--hover {
+    background: #1c1c1e;
+}
+
+DataTable:focus {
+    background-tint: transparent;
+}
+
+/* ---- table editor ---------------------------------------------------- */
+
+#table-editor,
+.table-editor {
+    height: 1fr;
+    padding-top: 1;
+}
+
+#table-toolbar {
+    height: 1;
+    margin-bottom: 1;
+    align-vertical: middle;
+}
+
+#rows {
+    height: 1fr;
+    background: #101012;
+    border: round #232326;
+    scrollbar-color: #2c2c2e;
+    scrollbar-background: #101012;
+}
+
+#rows-empty {
+    display: none;
+    height: 1fr;
+    padding: 0 4;
+    content-align: center middle;
+    text-align: center;
+    color: #6e6e73;
+    background: #101012;
+    border: round #232326;
+}
+
+#row-footer {
+    height: 3;
+    margin-top: 1;
+    align-vertical: middle;
+}
+
+Button#row-range {
+    width: 1fr;
+    margin-left: 0;
+    content-align: left middle;
+    text-align: left;
+    color: #6e6e73;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+Button#row-range:hover {
+    color: #f5f5f7;
+    background: #17171a;
+}
+
+/* ---- edit forms ------------------------------------------------------ */
+
+.column-editor {
+    height: auto;
+    margin-top: 1;
+}
+
+#column-table {
+    height: 4;
+    min-height: 3;
+    background: #101012;
+    border: round #232326;
+    scrollbar-color: #2c2c2e;
+    scrollbar-background: #101012;
+}
+
+.column-editor .modal-actions.inline {
+    margin-top: 1;
+}
+
+.columns-modal #column-table {
+    height: 10;
+}
+
+.cell-editor {
+    height: 3;
+    margin-bottom: 1;
+    background: #101012;
+    border: tall #2c2c2e;
+}
+
+.cell-editor:focus {
+    border: tall #0a84ff;
+}
+
+/* ---- modals ---------------------------------------------------------- */
+
+ModalScreen {
+    align: center middle;
+    background: #000000 70%;
+}
+
+.modal {
+    width: 68;
+    max-width: 94%;
+    height: auto;
+    max-height: 94%;
+    padding: 1 2;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: #17171a;
+    border: round #2c2c2e;
+    scrollbar-color: #2c2c2e;
+    scrollbar-background: #17171a;
+}
+
+.modal.narrow {
+    width: 52;
+    max-width: 94%;
+}
+
+.modal.wide {
+    width: 84;
+    max-width: 94%;
+}
+
+.search-modal {
+    width: 64;
+    max-width: 94%;
+}
+
+.import-screen-body {
+    width: 100%;
+    height: 100%;
+    padding: 0 2 1 2;
+    background: #0b0b0d;
+}
+
+#import-header {
+    height: 2;
+    padding: 0 1;
+    align-vertical: middle;
+    border-bottom: solid #1c1c1e;
+}
+
+#import-header > .modal-title {
+    width: auto;
+}
+
+#import-step-label {
+    width: 1fr;
+    content-align: right middle;
+    color: #6e6e73;
+}
+
+#import-steps {
+    height: 1fr;
+}
+
+.import-step-body {
+    height: 1fr;
+}
+
+#import-source-status,
+#import-mapping-status,
+#import-filter-status,
+#import-review-note {
+    height: auto;
+    color: #8e8e93;
+}
+
+#import-preview,
+#import-mapping-table,
+#import-filter-table,
+#import-review-preview {
+    background: #101012;
+    border: round #232326;
+    scrollbar-color: #2c2c2e;
+    scrollbar-background: #101012;
+}
+
+#import-preview {
+    height: 1fr;
+    min-height: 6;
+    margin-top: 1;
+}
+
+#import-mapping-table {
+    height: 1fr;
+    min-height: 6;
+}
+
+#import-filter-table {
+    height: 1fr;
+    min-height: 4;
+}
+
+#import-review-preview {
+    height: 1fr;
+    min-height: 6;
+    margin-top: 1;
+}
+
+#import-column-list {
+    height: 1fr;
+    min-height: 6;
+    margin-top: 1;
+    background: #101012;
+    border: round #232326;
+    scrollbar-color: #2c2c2e;
+    scrollbar-background: #101012;
+}
+
+#import-column-list > .selection-list--button-selected {
+    color: #0a84ff;
+    background: #101012;
+}
+
+#import-column-list > .selection-list--button-selected-highlighted {
+    color: #0a84ff;
+    background: #1c1c1e;
+}
+
+Select {
+    width: 1fr;
+    height: auto;
+    background: transparent;
+    border: none;
+}
+
+Select > SelectCurrent {
+    background: #141416;
+    border: tall #2c2c2e;
+}
+
+Select:focus > SelectCurrent {
+    background: #141416;
+    border: tall #0a84ff;
+}
+
+Select > SelectOverlay {
+    background: #141416;
+    border: tall #2c2c2e;
+}
+
+#import-progress {
+    align: center middle;
+}
+
+#import-status {
+    margin-top: 1;
+    width: 100%;
+    text-align: center;
+    color: #f5f5f7;
+}
+
+#import-progress-note {
+    width: 100%;
+    text-align: center;
+    color: #6e6e73;
+}
+
+#search-columns {
+    height: auto;
+    max-height: 8;
+    margin-bottom: 1;
+    background: #101012;
+    border: round #232326;
+    scrollbar-color: #2c2c2e;
+    scrollbar-background: #101012;
+}
+
+#search-columns > .selection-list--button-selected {
+    color: #0a84ff;
+    background: #101012;
+}
+
+#search-columns > .selection-list--button-selected-highlighted {
+    color: #0a84ff;
+    background: #1c1c1e;
+}
+
+.modal-body {
+    height: 1fr;
+    scrollbar-color: #2c2c2e;
+    scrollbar-background: #17171a;
+    scrollbar-size-vertical: 1;
+}
+
+.row-modal .modal-body,
+.edit-table-modal .modal-body,
+.columns-modal .modal-body,
+.filters-modal .modal-body {
+    height: auto;
+}
+
+.modal-title {
+    height: 1;
+    color: #f5f5f7;
+    text-style: bold;
+}
+
+.modal-hint {
+    height: auto;
+    margin-bottom: 1;
+    color: #8e8e93;
+}
+
+.modal-message {
+    height: auto;
+    margin: 1 0;
+    color: #d1d1d6;
+}
+
+.modal-error {
+    height: auto;
+    margin-bottom: 1;
+    padding: 0 1;
+    background: #2a1416;
+    border-left: thick #ff453a;
+}
+
+.form {
+    height: auto;
+}
+
+.form-row {
+    height: 3;
+    align-vertical: middle;
+}
+
+.form-row.compact {
+    height: 1;
+}
+
+.form-actions {
+    margin-top: 1;
+}
+
+.form-row > Input,
+.form-row > Select,
+.form-row > PathField {
+    width: 1fr;
+    min-width: 0;
+}
+
+.form-label {
+    width: 18;
+    color: #8e8e93;
+}
+
+.form-value {
+    height: 1;
+    color: #d1d1d6;
+}
+
+#columns-row > .form-value {
+    width: auto;
+}
+
+#columns-row > #edit-columns {
+    width: auto;
+}
+
+.form-note {
+    height: auto;
+    margin-top: 1;
+    color: #6e6e73;
+}
+
+.modal-actions {
+    height: 3;
+    align-horizontal: right;
+    margin-top: 1;
+    scrollbar-color: #2c2c2e;
+    scrollbar-background: #17171a;
+    scrollbar-size-horizontal: 1;
+}
+
+.modal-actions Button {
+    margin-left: 1;
+}
+
+/* ---- path suggestions ------------------------------------------------ */
+
+PathField {
+    width: 1fr;
+    height: auto;
+}
+
+PathField > Input {
+    width: 1fr;
+}
+
+PathField > OptionList {
+    height: auto;
+    max-height: 6;
+    margin-top: 0;
+    background: #141416;
+    border: round #2c2c2e;
+    scrollbar-color: #2c2c2e;
+    scrollbar-background: #141416;
+}
+
+/* ---- filters --------------------------------------------------------- */
+
+#filter-table {
+    height: 10;
+    min-height: 4;
+    margin-bottom: 1;
+    background: #101012;
+    border: round #232326;
+    scrollbar-color: #2c2c2e;
+    scrollbar-background: #101012;
+}
+
+#filter-count {
+    margin-top: 1;
+}

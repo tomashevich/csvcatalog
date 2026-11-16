@@ -19,9 +19,36 @@ tired of messing around with csvs and databases separately? me too. that's why i
 pip install csvcatalog
 ```
 
-2.  run a command
+2.  open the interactive catalog
 
-the basic structure is `csvcatalog COMMAND [ARGS]`. for example, to see all tables:
+run `csvcatalog` without arguments to open the **terminal ui**. it shows a searchable table list with a small footer summary. click a table (or press enter) to open it in a new tab below the top bar. everything works with both the keyboard and the mouse:
+
+```bash
+csvcatalog
+```
+
+if the configured database does not exist yet, the ui asks for a path instead of failing. path inputs suggest existing directories and `.db`/`.sqlite` files: use `↓` to browse suggestions, or just type a new path to create it. the same happens when you change the database path in settings.
+
+opened tables become code-editor style tabs with a close cross, so you can switch between several tables without losing search or sort state. the table editor supports paged loading, server-side search, sorting by clicking column headers, editing a full row, adding and deleting rows, and renaming or deleting columns from the edit modal. large cell values are loaded only when you open a row, while the list uses truncated previews. search lives in a modal, so the table list always gets the full screen. the selected-table actions (view, edit, delete, export) live in the overview footer; the table viewer footer has row/table actions and pagination.
+
+the layout adapts to the terminal size: the table list fills all available space, summary counters live in a small footer at the end of the list, and every scrollable area has its own scrollbar.
+
+| key | action |
+| --- | --- |
+| `/` | open search |
+| `s` | open settings |
+| `f` | manage saved filters |
+| `e` | edit the selected table |
+| `d` | delete the selected table |
+| `r` | refresh the catalog |
+| `Ctrl+W` | close the active table tab |
+| `Ctrl+C` twice | quit |
+
+shortcuts also work on a russian keyboard layout (`s` / `ы`, `f` / `а`, `e` / `у`, `d` / `в`, `r` / `к`, `/` or `.` for search). `Ctrl+F`, `Ctrl+R` and `Ctrl+E` work regardless of layout.
+
+3.  run a command
+
+the basic structure is `csvcatalog COMMAND [ARGS]`. for example, to see all commands:
 
 ```bash
 csvcatalog --help
@@ -41,7 +68,7 @@ you can setup aes256 encryption for database file
 csvcatalog settings encryption true
 ```
 
-3.  extract your csv data table
+4.  extract your csv data table
 
 ```bash
 csvcatalog extract path/to/my/data.csv

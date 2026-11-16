@@ -1,8 +1,9 @@
+import csv
 import json
 import re
 import sqlite3
 from abc import ABC, abstractmethod
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -107,6 +108,51 @@ class BaseStorage(ABC):
     def sql(
         self, query: str, params: Sequence[SqlValue] | None = None
     ) -> list[dict[str, SqlValue]]: ...
+
+    @abstractmethod
+    def get_rows(
+        self,
+        table_name: str,
+        *,
+        offset: int = 0,
+        limit: int = 100,
+        search: str | None = None,
+        search_columns: Sequence[str] | None = None,
+        sort_column: str | None = None,
+        sort_desc: bool = False,
+    ) -> tuple[list[dict[str, SqlValue]], int]: ...
+
+    @abstractmethod
+    def replace_in_columns(
+        self,
+        table_name: str,
+        columns: Sequence[str],
+        search: str,
+        replacement: str,
+    ) -> tuple[int, int]: ...
+
+    @abstractmethod
+    def get_row(self, table_name: str, rowid: int) -> dict[str, SqlValue] | None: ...
+
+    @abstractmethod
+    def insert_row(self, table_name: str, values: Mapping[str, SqlValue]) -> None: ...
+
+    @abstractmethod
+    def update_row(
+        self, table_name: str, rowid: int, values: Mapping[str, SqlValue]
+    ) -> None: ...
+
+    @abstractmethod
+    def delete_row(self, table_name: str, rowid: int) -> None: ...
+
+    @abstractmethod
+    def rename_column(self, table_name: str, old_name: str, new_name: str) -> None: ...
+
+    @abstractmethod
+    def delete_column(self, table_name: str, column_name: str) -> None: ...
+
+    @abstractmethod
+    def export_table_to_csv(self, table_name: str, file_path: Path) -> int: ...
 
     @abstractmethod
     def close(self) -> None: ...
@@ -259,6 +305,258 @@ class SqliteStorage(BaseStorage):
             (count, table),
         )
         self.con.commit()
+
+    @override
+    def get_rows(
+        self,
+        table_name: str,
+        *,
+        offset: int = 0,
+        limit: int = 100,
+        search: str | None = None,
+        search_columns: Sequence[str] | None = None,
+        sort_column: str | None = None,
+        sort_desc: bool = False,
+    ) -> tuple[list[dict[str, SqlValue]], int]:
+        """loads one page of rows with server-side search and sorting"""
+        _validate_identifier(table_name)
+        table = self.get_table(table_name)
+        if table is None:
+            raise ValueError(f"table '{table_name}' not found")
+        if not table.columns:
+            return [], 0
+
+        where_clause = ""
+        where_params: list[SqlValue] = []
+        if search:
+            columns = [
+                column
+                for column in (search_columns or table.columns)
+                if column in table.columns
+            ]
+            if not columns:
+                return [], 0
+            where_clause = " WHERE " + " OR ".join(
+                f'CAST("{column}" AS TEXT) LIKE ?' for column in columns
+            )
+            where_params = [f"%{search}%"] * len(columns)
+
+        count_query = f'SELECT COUNT(*) FROM "{table_name}"{where_clause}'
+        _ = self.cur.execute(count_query, where_params)
+        count_row = cast(sqlite3.Row, cast(object, self.cur.fetchone()))
+        total = cast(int, cast(object, count_row[0]))
+
+        preview = ", ".join(
+            f'substr(CAST("{column}" AS TEXT), 1, 500) AS "{column}"'
+            for column in table.columns
+        )
+        order_column = (
+            sort_column if sort_column in table.columns else "__csvcatalog_rowid__"
+        )
+        order_clause = f' ORDER BY "{order_column}"'
+        if sort_column in table.columns and sort_desc:
+            order_clause += " DESC"
+        elif sort_column is None:
+            order_clause = " ORDER BY __csvcatalog_rowid__"
+
+        query = (
+            f'SELECT rowid AS "__csvcatalog_rowid__", {preview} '
+            f'FROM "{table_name}"{where_clause}{order_clause} LIMIT ? OFFSET ?'
+        )
+        _ = self.cur.execute(query, [*where_params, limit, offset])
+        rows = cast(list[sqlite3.Row], cast(object, self.cur.fetchall()))
+        return [_row_to_dict(row) for row in rows], total
+
+    @override
+    def replace_in_columns(
+        self,
+        table_name: str,
+        columns: Sequence[str],
+        search: str,
+        replacement: str,
+    ) -> tuple[int, int]:
+        """replaces text in the selected columns and returns rows and occurrences"""
+        _validate_identifier(table_name)
+        table = self.get_table(table_name)
+        if table is None:
+            raise ValueError(f"table '{table_name}' not found")
+        selected = [column for column in columns if column in table.columns]
+        if not search or not selected:
+            return 0, 0
+
+        pattern = re.compile(re.escape(search), re.IGNORECASE)
+        rowid_column = "__csvcatalog_rowid__"
+        selected_sql = ", ".join(f'"{column}"' for column in selected)
+        _ = self.cur.execute(
+            f'SELECT rowid AS "{rowid_column}", {selected_sql} FROM "{table_name}"'
+        )
+        rows = cast(list[sqlite3.Row], cast(object, self.cur.fetchall()))
+        changed_rows = 0
+        replacements = 0
+        for row in rows:
+            updates: dict[str, str] = {}
+            for column in selected:
+                value = cast(SqlValue, row[column])
+                if value is None:
+                    continue
+                text = (
+                    value.decode("utf-8", errors="replace")
+                    if isinstance(value, bytes)
+                    else str(value)
+                )
+                new_text, count = pattern.subn(lambda _: replacement, text)
+                if count:
+                    updates[column] = new_text
+                    replacements += count
+            if not updates:
+                continue
+            assignments = ", ".join(f'"{column}" = ?' for column in updates)
+            params: list[SqlValue] = [*updates.values(), row[rowid_column]]
+            _ = self.cur.execute(
+                f'UPDATE "{table_name}" SET {assignments} WHERE rowid = ?',
+                params,
+            )
+            changed_rows += 1
+        self.con.commit()
+        return changed_rows, replacements
+
+    @override
+    def get_row(self, table_name: str, rowid: int) -> dict[str, SqlValue] | None:
+        """loads the full values of a single row"""
+        _validate_identifier(table_name)
+        table = self.get_table(table_name)
+        if table is None or not table.columns:
+            return None
+        column_list = ", ".join(f'"{column}"' for column in table.columns)
+        _ = self.cur.execute(
+            f'SELECT rowid AS "__csvcatalog_rowid__", {column_list} FROM "{table_name}" WHERE rowid = ?',
+            (rowid,),
+        )
+        row = cast(sqlite3.Row | None, cast(object, self.cur.fetchone()))
+        return None if row is None else _row_to_dict(row)
+
+    @override
+    def insert_row(self, table_name: str, values: Mapping[str, SqlValue]) -> None:
+        """inserts a single row and keeps the metadata row count in sync"""
+        _validate_identifier(table_name)
+        table = self.get_table(table_name)
+        if table is None:
+            raise ValueError(f"table '{table_name}' not found")
+        columns = [column for column in table.columns if column in values]
+        if not columns:
+            columns = table.columns
+        placeholders = ", ".join("?" for _ in columns)
+        column_list = ", ".join(f'"{column}"' for column in columns)
+        params = [values.get(column) for column in columns]
+        _ = self.cur.execute(
+            f'INSERT INTO "{table_name}" ({column_list}) VALUES ({placeholders})',
+            params,
+        )
+        self._refresh_meta_count(table_name)
+        self.con.commit()
+
+    @override
+    def update_row(
+        self, table_name: str, rowid: int, values: Mapping[str, SqlValue]
+    ) -> None:
+        """updates all provided cells of a single row"""
+        _validate_identifier(table_name)
+        table = self.get_table(table_name)
+        if table is None:
+            raise ValueError(f"table '{table_name}' not found")
+        columns = [column for column in table.columns if column in values]
+        if not columns:
+            return
+        assignments = ", ".join(f'"{column}" = ?' for column in columns)
+        params: list[SqlValue] = [values[column] for column in columns]
+        params.append(rowid)
+        _ = self.cur.execute(
+            f'UPDATE "{table_name}" SET {assignments} WHERE rowid = ?',
+            params,
+        )
+        self.con.commit()
+
+    @override
+    def delete_row(self, table_name: str, rowid: int) -> None:
+        """deletes a single row and keeps the metadata row count in sync"""
+        _validate_identifier(table_name)
+        _ = self.cur.execute(f'DELETE FROM "{table_name}" WHERE rowid = ?', (rowid,))
+        self._refresh_meta_count(table_name)
+        self.con.commit()
+
+    @override
+    def rename_column(self, table_name: str, old_name: str, new_name: str) -> None:
+        """renames a column and updates the cached column list"""
+        _validate_identifier(table_name)
+        _validate_identifier(old_name)
+        _validate_identifier(new_name)
+        table = self.get_table(table_name)
+        if table is None:
+            raise ValueError(f"table '{table_name}' not found")
+        if old_name not in table.columns:
+            raise ValueError(f"column '{old_name}' not found")
+        if new_name in table.columns:
+            raise ValueError(f"column '{new_name}' already exists")
+
+        _ = self.cur.execute(
+            f'ALTER TABLE "{table_name}" RENAME COLUMN "{old_name}" TO "{new_name}"'
+        )
+        columns = [
+            new_name if column == old_name else column for column in table.columns
+        ]
+        self._update_meta_columns(table_name, columns)
+        self.con.commit()
+
+    @override
+    def delete_column(self, table_name: str, column_name: str) -> None:
+        """drops a column and updates the cached column list"""
+        _validate_identifier(table_name)
+        _validate_identifier(column_name)
+        table = self.get_table(table_name)
+        if table is None:
+            raise ValueError(f"table '{table_name}' not found")
+        if column_name not in table.columns:
+            raise ValueError(f"column '{column_name}' not found")
+        if len(table.columns) <= 1:
+            raise ValueError("a table must keep at least one column")
+
+        _ = self.cur.execute(f'ALTER TABLE "{table_name}" DROP COLUMN "{column_name}"')
+        columns = [column for column in table.columns if column != column_name]
+        self._update_meta_columns(table_name, columns)
+        self.con.commit()
+
+    @override
+    def export_table_to_csv(self, table_name: str, file_path: Path) -> int:
+        """streams a table into a csv file and returns the exported row count"""
+        _validate_identifier(table_name)
+        table = self.get_table(table_name)
+        if table is None:
+            raise ValueError(f"table '{table_name}' not found")
+        count = 0
+        with file_path.open("w", newline="", encoding="utf-8") as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow(table.columns)
+            _ = self.cur.execute(f'SELECT * FROM "{table_name}"')
+            rows = cast(Iterator[sqlite3.Row], cast(object, self.cur))
+            for row in rows:
+                writer.writerow([_row_value(row, column) for column in table.columns])
+                count += 1
+        return count
+
+    def _update_meta_columns(self, table_name: str, columns: list[str]) -> None:
+        _ = self.cur.execute(
+            f'UPDATE "{META_TABLE_NAME}" SET columns = ? WHERE table_name = ?',
+            (json.dumps(columns), table_name),
+        )
+
+    def _refresh_meta_count(self, table_name: str) -> None:
+        _ = self.cur.execute(f'SELECT COUNT(*) FROM "{table_name}"')
+        count_row = cast(sqlite3.Row, cast(object, self.cur.fetchone()))
+        count = cast(int, cast(object, count_row[0]))
+        _ = self.cur.execute(
+            f'UPDATE "{META_TABLE_NAME}" SET row_count = ? WHERE table_name = ?',
+            (count, table_name),
+        )
 
     @override
     def update_description(self, table_name: str, description: str) -> None:
