@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import cast
 
 from platformdirs import user_data_dir
 from pydantic import BaseModel, ValidationError
@@ -33,8 +34,8 @@ def load_config() -> Settings:
 
     with config_path.open("r") as f:
         try:
-            data = json.load(f)
-            return Settings(**data)
+            data = cast(object, json.load(f))
+            return Settings.model_validate(data)
         except (json.JSONDecodeError, ValidationError):
             return Settings()
 
@@ -43,4 +44,4 @@ def save_config(settings: Settings) -> None:
     """saves the given settings model to settings.json"""
     config_path = get_config_path()
     with config_path.open("w") as f:
-        f.write(settings.model_dump_json(indent=4))
+        _ = f.write(settings.model_dump_json(indent=4))

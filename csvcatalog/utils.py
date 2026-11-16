@@ -3,7 +3,7 @@ import typer
 from questionary import Separator
 from rich.console import Console
 
-from . import config
+from . import config, prompts
 from .config import Settings
 
 console = Console()
@@ -16,7 +16,7 @@ def define_filters_loop(
     filters: dict[str, list[str]] = {}
     while True:
         # create choices that show which columns already have filters
-        col_choices = []
+        col_choices: list[str] = []
         for col in columns_to_export:
             filter_count = len(filters.get(col, []))
             label = f"{col} ({filter_count} filter(s))" if filter_count > 0 else col
@@ -24,9 +24,12 @@ def define_filters_loop(
         col_choices.append("[continue]")
 
         # parse the selection to get the clean column name
-        raw_selection = questionary.select(
-            "select a column to apply a filter to (or 'done'):", choices=col_choices
-        ).ask()
+        raw_selection = prompts.ask_text(
+            questionary.select(
+                "select a column to apply a filter to (or 'done'):",
+                choices=col_choices,
+            )
+        )
 
         if raw_selection is None:
             raise typer.Abort()
@@ -41,24 +44,32 @@ def define_filters_loop(
             filter_choices.append(Separator())
             filter_choices.extend(settings.filters.keys())
 
-        selected_filter = questionary.select(
-            f"select a filter for column '{column_to_filter}':", choices=filter_choices
-        ).ask()
+        selected_filter = prompts.ask_text(
+            questionary.select(
+                f"select a filter for column '{column_to_filter}':",
+                choices=filter_choices,
+            )
+        )
 
         if selected_filter is None:
             raise typer.Abort()
 
         regex_pattern = ""
         if selected_filter == "New one-time regex":
-            regex_pattern = questionary.text("enter regex pattern:").ask()
-            if regex_pattern is None:
+            raw_pattern = prompts.ask_text(questionary.text("enter regex pattern:"))
+            if raw_pattern is None:
                 raise typer.Abort()
+            regex_pattern = raw_pattern
 
             # ask to save the new regex
-            if questionary.confirm(
-                "do you want to save this new regex for future use?", default=False
-            ).ask():
-                filter_name = questionary.text("enter a name for this filter:").ask()
+            if prompts.ask_bool(
+                questionary.confirm(
+                    "do you want to save this new regex for future use?", default=False
+                )
+            ):
+                filter_name = prompts.ask_text(
+                    questionary.text("enter a name for this filter:")
+                )
                 if filter_name:
                     settings.filters[filter_name] = regex_pattern
                     config.save_config(settings)
@@ -79,8 +90,8 @@ def prompt_for_filters(
     columns_to_export: list[str], settings: Settings
 ) -> dict[str, list[str]]:
     """prompts user if they want to add filters, and if so, runs the filter definition loop"""
-    if not questionary.confirm(
-        "add filters to include/exclude rows?", default=False
-    ).ask():
+    if not prompts.ask_bool(
+        questionary.confirm("add filters to include/exclude rows?", default=False)
+    ):
         return {}
     return define_filters_loop(columns_to_export, settings)

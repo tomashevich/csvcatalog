@@ -1,5 +1,5 @@
 import time
-from typing import Annotated
+from typing import Annotated, override
 
 import typer
 from rich.console import Console
@@ -10,7 +10,8 @@ from .base import CommandBase
 console = Console()
 
 
-class SearchCommand(CommandBase):
+class SearchCommand(CommandBase[[str, list[str] | None]]):
+    @override
     def execute(
         self,
         value: Annotated[str, typer.Argument(help="the value to search for")],
@@ -20,7 +21,7 @@ class SearchCommand(CommandBase):
                 help="optional list of targets to search in (e.g., 'table1', 'table2.col1', '*.col2')"
             ),
         ] = None,
-    ):
+    ) -> None:
         """search for a value in specified tables/columns or globally"""
         targets = targets if targets is not None else []
         start_time = time.time()

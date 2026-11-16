@@ -1,15 +1,16 @@
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, cast
 
 import questionary
 import typer
 from rich.console import Console
 from typer import Context
 
-from . import __version__, config, crypto, storage
+from . import __version__, config, crypto, prompts, storage
 from .commands import filters as filters_app
 from .commands import settings as settings_app
 from .commands import tables
+from .commands.base import get_command_context
 from .commands.delete import DeleteCommand
 from .commands.export import ExportCommand
 from .commands.extract import ExtractCommand
@@ -30,7 +31,7 @@ def version_callback(value: bool) -> None:
 @app.callback(invoke_without_command=True)
 def main(
     ctx: Context,
-    version: Annotated[
+    _version: Annotated[
         bool | None,
         typer.Option(
             "--version",
@@ -39,7 +40,7 @@ def main(
             help="show version and exit",
         ),
     ] = None,
-):
+) -> None:
     """a command-line interface tool for managing csv catalogs"""
     # the settings and filters commands run without db/storage setup
     if ctx.invoked_subcommand in ("settings", "filters"):
@@ -55,9 +56,11 @@ def main(
     storage_path = db_path
     password = None
     if settings.encryption:
-        password = questionary.password(
-            "please enter the database password:", auto_enter=False
-        ).ask()
+        password = prompts.ask_text(
+            questionary.password(
+                "please enter the database password:", auto_enter=False
+            )
+        )
         if not password:
             console.print("[yellow]operation cancelled[/yellow]")
             raise typer.Abort()
@@ -71,16 +74,16 @@ def main(
     storage_instance = storage.SqliteStorage(storage_path)
     ctx.obj = {"storage": storage_instance, "settings": settings}
 
-    def cleanup():
+    def cleanup() -> None:
         storage_instance.close()
         if temp_db_file and password and settings.encryption:
-            temp_db_file.seek(0)
+            _ = temp_db_file.seek(0)
             plaintext_bytes = temp_db_file.read()
             crypto.encrypt_bytes_to_file(plaintext_bytes, db_path, password)
         if temp_db_file:
             temp_db_file.close()
 
-    ctx.call_on_close(cleanup)
+    _ = cast(object, ctx.call_on_close(cleanup))
 
 
 # register command modules that are full typer apps
@@ -105,26 +108,29 @@ def extract(
         ),
     ],
     encoding: Annotated[str, typer.Option(help="encoding of the csv file")] = "utf-8",
-):
+) -> None:
     """extract data from a csv file and load it into a new table"""
-    cmd = ExtractCommand(ctx.obj["storage"], ctx.obj["settings"])
-    cmd.run(file_path=file_path, encoding=encoding)
+    storage_instance, settings = get_command_context(ctx)
+    cmd = ExtractCommand(storage_instance, settings)
+    cmd.run(file_path, encoding)
 
 
 @app.command()
 def delete(
     ctx: Context,
     table_name: Annotated[str, typer.Argument(help="the name of the table to delete")],
-):
+) -> None:
     """delete a table from the database"""
-    cmd = DeleteCommand(ctx.obj["storage"], ctx.obj["settings"])
-    cmd.run(table_name=table_name)
+    storage_instance, settings = get_command_context(ctx)
+    cmd = DeleteCommand(storage_instance, settings)
+    cmd.run(table_name)
 
 
 @app.command()
-def purge(ctx: Context):
+def purge(ctx: Context) -> None:
     """delete all tables from the database"""
-    cmd = PurgeCommand(ctx.obj["storage"], ctx.obj["settings"])
+    storage_instance, settings = get_command_context(ctx)
+    cmd = PurgeCommand(storage_instance, settings)
     cmd.run()
 
 
@@ -132,10 +138,11 @@ def purge(ctx: Context):
 def sql(
     ctx: Context,
     query: Annotated[str, typer.Argument(help="the sql query to execute")],
-):
+) -> None:
     """execute a raw sql query on the database"""
-    cmd = SqlCommand(ctx.obj["storage"], ctx.obj["settings"])
-    cmd.run(query=query)
+    storage_instance, settings = get_command_context(ctx)
+    cmd = SqlCommand(storage_instance, settings)
+    cmd.run(query)
 
 
 @app.command()
@@ -145,10 +152,11 @@ def export(
         list[str] | None,
         typer.Argument(help="the name of the table(s) to export"),
     ] = None,
-):
+) -> None:
     """export one or more tables to csv files"""
-    cmd = ExportCommand(ctx.obj["storage"], ctx.obj["settings"])
-    cmd.run(table_names=table_names)
+    storage_instance, settings = get_command_context(ctx)
+    cmd = ExportCommand(storage_instance, settings)
+    cmd.run(table_names)
 
 
 @app.command()
@@ -161,7 +169,8 @@ def search(
             help="optional list of targets to search in (e.g., 'table1', 'table2.col1', '*.col2')"
         ),
     ] = None,
-):
+) -> None:
     """search for a value in the database"""
-    cmd = SearchCommand(ctx.obj["storage"], ctx.obj["settings"])
-    cmd.run(value=value, targets=targets)
+    storage_instance, settings = get_command_context(ctx)
+    cmd = SearchCommand(storage_instance, settings)
+    cmd.run(value, targets)

@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, override
 
 import typer
 from rich.console import Console
@@ -9,11 +9,12 @@ from .base import CommandBase
 console = Console()
 
 
-class SqlCommand(CommandBase):
+class SqlCommand(CommandBase[[str]]):
+    @override
     def execute(
         self,
         query: Annotated[str, typer.Argument(help="the sql query to execute")],
-    ):
+    ) -> None:
         """execute sql command"""
         results = self.storage.sql(query)
         if not results:

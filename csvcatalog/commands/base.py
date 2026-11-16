@@ -1,29 +1,42 @@
 from abc import ABC, abstractmethod
+from typing import Generic, ParamSpec, cast
 
 import typer
 from rich.console import Console
+from typer import Context
 
 from ..config import Settings
 from ..storage import BaseStorage
 
 console = Console()
 
+P = ParamSpec("P")
 
-class CommandBase(ABC):
+
+def get_command_context(ctx: Context) -> tuple[BaseStorage, Settings]:
+    """extract the typed storage and settings objects from a typer context"""
+    obj = cast(dict[str, object], cast(object, ctx.obj))
+    return (
+        cast(BaseStorage, obj["storage"]),
+        cast(Settings, obj["settings"]),
+    )
+
+
+class CommandBase(ABC, Generic[P]):
     """
     an abstract base class for commands
     """
 
     def __init__(self, storage: BaseStorage, settings: Settings):
-        self.storage = storage
-        self.settings = settings
+        self.storage: BaseStorage = storage
+        self.settings: Settings = settings
 
-    def run(self, *args, **kwargs):
+    def run(self, *args: P.args, **kwargs: P.kwargs) -> None:
         """
         method called by typer. wraps the command logic in a generic error handler
         """
         try:
-            return self.execute(*args, **kwargs)
+            self.execute(*args, **kwargs)
         except typer.Abort:
             # re-raise abort exceptions to let typer handle them
             raise
@@ -32,7 +45,7 @@ class CommandBase(ABC):
             raise typer.Abort() from e
 
     @abstractmethod
-    def execute(self, *args, **kwargs):
+    def execute(self, *args: P.args, **kwargs: P.kwargs) -> None:
         """
         the main entry method for the cmd logic
         """

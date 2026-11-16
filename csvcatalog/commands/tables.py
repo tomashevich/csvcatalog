@@ -1,6 +1,6 @@
 import datetime
 from enum import Enum
-from typing import Annotated
+from typing import Annotated, override
 
 import questionary
 import typer
@@ -9,9 +9,9 @@ from rich.console import Console
 from rich.table import Table
 from typer import Context
 
-from .. import storage
+from .. import prompts, storage
 from ..storage import Table as DbTable
-from .base import CommandBase
+from .base import CommandBase, get_command_context
 
 app = typer.Typer(help="interact with tables")
 console = Console()
@@ -23,14 +23,15 @@ class SortOption(str, Enum):
     date = "date"
 
 
-class TablesListCommand(CommandBase):
+class TablesListCommand(CommandBase[[str | None, int | None, str | None, str | None]]):
+    @override
     def execute(
         self,
         description_filter: str | None,
         min_rows: int | None,
         created_after: str | None,
         sort_by: str | None,
-    ):
+    ) -> None:
         """list all tables in the database"""
         tables = self.storage.get_tables(
             description_filter=description_filter,
@@ -111,16 +112,17 @@ def list_tables(
             case_sensitive=False,
         ),
     ] = SortOption.table_name,
-):
+) -> None:
     """list all tables in the database"""
     if date:
         try:
-            datetime.datetime.strptime(date, "%Y-%m-%d")
+            _ = datetime.datetime.strptime(date, "%Y-%m-%d")
         except ValueError:
             console.print("[red]invalid date format. please use yyyy-mm-dd[/red]")
             raise typer.Abort() from None
 
-    cmd = TablesListCommand(ctx.obj["storage"], ctx.obj["settings"])
+    storage_instance, settings = get_command_context(ctx)
+    cmd = TablesListCommand(storage_instance, settings)
     cmd.execute(
         description_filter=description,
         min_rows=rows,
@@ -129,8 +131,9 @@ def list_tables(
     )
 
 
-class TablesEditCommand(CommandBase):
-    def execute(self, table_name: str | None):
+class TablesEditCommand(CommandBase[[str | None]]):
+    @override
+    def execute(self, table_name: str | None) -> None:
         """interactive wizard to edit table metadata"""
         if not table_name:
             tables = self.storage.get_tables()
@@ -142,9 +145,11 @@ class TablesEditCommand(CommandBase):
                 Choice(title=f"{t.name}", value=t.name)
                 for t in sorted(tables, key=lambda t: t.name)
             ]
-            table_name = questionary.select(
-                "select the table you want to edit:", choices=table_choices
-            ).ask()
+            table_name = prompts.ask_text(
+                questionary.select(
+                    "select the table you want to edit:", choices=table_choices
+                )
+            )
             if not table_name:
                 raise typer.Abort()
 
@@ -153,16 +158,19 @@ class TablesEditCommand(CommandBase):
             console.print(f"[red]error: table '{table_name}' not found[/red]")
             raise typer.Abort()
 
-        edit_choice = questionary.select(
-            "what do you want to edit?",
-            choices=[
-                Choice("name", value="name"),
-                Choice("description", value="description"),
-                Choice(
-                    f"date (current: {table.created_at.split('T')[0]})", value="date"
-                ),
-            ],
-        ).ask()
+        edit_choice = prompts.ask_text(
+            questionary.select(
+                "what do you want to edit?",
+                choices=[
+                    Choice("name", value="name"),
+                    Choice("description", value="description"),
+                    Choice(
+                        f"date (current: {table.created_at.split('T')[0]})",
+                        value="date",
+                    ),
+                ],
+            )
+        )
 
         if not edit_choice:
             raise typer.Abort()
@@ -174,10 +182,10 @@ class TablesEditCommand(CommandBase):
         elif edit_choice == "date":
             self._edit_date(table)
 
-    def _edit_name(self, table: DbTable):
-        new_name_raw = questionary.text(
-            "enter new table name:", default=table.name
-        ).ask()
+    def _edit_name(self, table: DbTable) -> None:
+        new_name_raw = prompts.ask_text(
+            questionary.text("enter new table name:", default=table.name)
+        )
         if not new_name_raw or new_name_raw == table.name:
             console.print("[yellow]name not changed[/yellow]")
             return
@@ -195,10 +203,10 @@ class TablesEditCommand(CommandBase):
             f"[green]table '{table.name}' was successfully renamed to '{new_name}'[/green]"
         )
 
-    def _edit_description(self, table: DbTable):
-        new_description = questionary.text(
-            "enter new description:", default=table.description or ""
-        ).ask()
+    def _edit_description(self, table: DbTable) -> None:
+        new_description = prompts.ask_text(
+            questionary.text("enter new description:", default=table.description or "")
+        )
         if new_description is None or new_description == table.description:
             console.print("[yellow]description not changed[/yellow]")
             return
@@ -208,11 +216,11 @@ class TablesEditCommand(CommandBase):
             f"[green]description for table '{table.name}' was successfully updated[/green]"
         )
 
-    def _edit_date(self, table: DbTable):
+    def _edit_date(self, table: DbTable) -> None:
         current_date_str = table.created_at.split("T")[0]
-        new_date_str = questionary.text(
-            "enter new date (yyyy-mm-dd):", default=current_date_str
-        ).ask()
+        new_date_str = prompts.ask_text(
+            questionary.text("enter new date (yyyy-mm-dd):", default=current_date_str)
+        )
 
         if not new_date_str or new_date_str == current_date_str:
             console.print("[yellow]date not changed[/yellow]")
@@ -247,7 +255,8 @@ def edit_table(
         str | None,
         typer.Argument(help="the name of the table to edit"),
     ] = None,
-):
+) -> None:
     """edit table details (name, description, date)"""
-    cmd = TablesEditCommand(ctx.obj["storage"], ctx.obj["settings"])
+    storage_instance, settings = get_command_context(ctx)
+    cmd = TablesEditCommand(storage_instance, settings)
     cmd.execute(table_name=table_name)

@@ -1,7 +1,7 @@
 from .app import app
 
 
-def main():
+def main() -> None:
     """main entry point for the csv catalog cli tool"""
     app()
 

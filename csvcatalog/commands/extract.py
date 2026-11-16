@@ -1,7 +1,7 @@
 import csv
 import re
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, override
 
 import questionary
 import typer
@@ -10,15 +10,15 @@ from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
-from .. import storage, utils
+from .. import prompts, storage, utils
 from .base import CommandBase
 
 console = Console()
 
 
-class ExtractCommand(CommandBase):
+class ExtractCommand(CommandBase[[Path, str]]):
     # constants for batch processing
-    BATCH_SIZE = 10_000
+    BATCH_SIZE: int = 10_000
 
     def _row_is_filtered_out(
         self, row_data: dict[str, str], filters: dict[str, list[str]]
@@ -54,6 +54,7 @@ class ExtractCommand(CommandBase):
         except Exception as e:
             raise typer.BadParameter(f"could not read file: {e}") from e
 
+    @override
     def execute(
         self,
         file_path: Annotated[
@@ -70,7 +71,7 @@ class ExtractCommand(CommandBase):
         encoding: Annotated[
             str, typer.Option(help="encoding of the csv file")
         ] = "utf-8",
-    ):
+    ) -> None:
         """run interactive wizard to extract data from a csv file"""
         console.print(f"starting extraction for '{file_path}'")
 
@@ -93,17 +94,21 @@ class ExtractCommand(CommandBase):
                 for row in preview_rows:
                     console.print(separator.join(row))
 
-                confirm_encoding = questionary.confirm(
-                    f"is '{current_encoding}' the correct encoding for the preview?"
-                ).ask()
+                confirm_encoding = prompts.ask_bool(
+                    questionary.confirm(
+                        f"is '{current_encoding}' the correct encoding for the preview?"
+                    )
+                )
                 if confirm_encoding is None:
                     raise typer.Abort()
 
                 if not confirm_encoding:
-                    new_encoding = questionary.text(
-                        "enter new encoding (e.g., utf-8, utf-8-sig, latin-1):",
-                        default=current_encoding,
-                    ).ask()
+                    new_encoding = prompts.ask_text(
+                        questionary.text(
+                            "enter new encoding (e.g., utf-8, utf-8-sig, latin-1):",
+                            default=current_encoding,
+                        )
+                    )
                     if not new_encoding:
                         raise typer.Abort()
                     current_encoding = new_encoding
@@ -111,10 +116,12 @@ class ExtractCommand(CommandBase):
                 break
             except typer.BadParameter as e:
                 console.print(f"[red]error: {e}[/red]")
-                new_encoding = questionary.text(
-                    "enter new encoding (e.g., utf-8, utf-8-sig, latin-1):",
-                    default=current_encoding,
-                ).ask()
+                new_encoding = prompts.ask_text(
+                    questionary.text(
+                        "enter new encoding (e.g., utf-8, utf-8-sig, latin-1):",
+                        default=current_encoding,
+                    )
+                )
                 if not new_encoding:
                     raise typer.Abort() from None
                 current_encoding = new_encoding
@@ -122,9 +129,12 @@ class ExtractCommand(CommandBase):
         final_encoding = current_encoding
 
         # set separator
-        separator = questionary.text("enter csv separator:", default=separator).ask()
-        if not separator:
+        new_separator = prompts.ask_text(
+            questionary.text("enter csv separator:", default=separator)
+        )
+        if not new_separator:
             raise typer.Abort()
+        separator = new_separator
 
         # re-read the csv data with the correct separator
         try:
@@ -137,10 +147,12 @@ class ExtractCommand(CommandBase):
 
         # step 3: select which csv headers to import
         choices = [Choice(header, checked=True) for header in csv_headers]
-        selected_csv_headers = questionary.checkbox(
-            "select the csv columns you want to import (default all)",
-            choices=choices,
-        ).ask()
+        selected_csv_headers = prompts.ask_list(
+            questionary.checkbox(
+                "select the csv columns you want to import (default all)",
+                choices=choices,
+            )
+        )
         if not selected_csv_headers:
             console.print("[red]no columns selected, aborting[/red]")
             raise typer.Abort()
@@ -163,9 +175,11 @@ class ExtractCommand(CommandBase):
             ]
             mapping_choices.append("[continue]")
 
-            choice_to_edit = questionary.select(
-                "select a column to rename, or continue:", choices=mapping_choices
-            ).ask()
+            choice_to_edit = prompts.ask_text(
+                questionary.select(
+                    "select a column to rename, or continue:", choices=mapping_choices
+                )
+            )
 
             if choice_to_edit is None:
                 raise typer.Abort()
@@ -176,10 +190,12 @@ class ExtractCommand(CommandBase):
             csv_header_to_edit = choice_to_edit.split(" -> ")[0]
             current_db_name = column_map[csv_header_to_edit]
 
-            new_db_name_raw = questionary.text(
-                f"enter new database column name for '{csv_header_to_edit}':",
-                default=current_db_name,
-            ).ask()
+            new_db_name_raw = prompts.ask_text(
+                questionary.text(
+                    f"enter new database column name for '{csv_header_to_edit}':",
+                    default=current_db_name,
+                )
+            )
 
             if not new_db_name_raw:
                 # if user enters empty string, abort or revert? for now, let's abort.
@@ -199,31 +215,35 @@ class ExtractCommand(CommandBase):
 
         # step 6: table name
         default_table_name = storage.sanitize_identifier(file_path.stem.strip())
-        table_name_raw = questionary.text(
-            "enter table name:", default=default_table_name
-        ).ask()
+        table_name_raw = prompts.ask_text(
+            questionary.text("enter table name:", default=default_table_name)
+        )
         if not table_name_raw:
             raise typer.Abort()
 
         table_name = storage.sanitize_identifier(table_name_raw)
         if table_name != table_name_raw:
-            if not questionary.confirm(
-                f"table name was sanitized to '{table_name}'. continue?",
-                default=True,
-            ).ask():
+            if not prompts.ask_bool(
+                questionary.confirm(
+                    f"table name was sanitized to '{table_name}'. continue?",
+                    default=True,
+                )
+            ):
                 raise typer.Abort()
 
         # step 7: table description
-        description = questionary.text("enter table description:", default="no").ask()
+        description = prompts.ask_text(
+            questionary.text("enter table description:", default="no")
+        )
         if description is None:  # if user presses ctrl+c
             raise typer.Abort()
 
         # preview data
         console.print("\n[bold]preview of data to be imported:[/bold]")
         header_to_idx = {header: i for i, header in enumerate(csv_headers)}
-        data_to_preview = []
+        data_to_preview: list[dict[str, str]] = []
         for line in preview_rows:
-            row_data = {}
+            row_data: dict[str, str] = {}
             for csv_header, column_name in column_map.items():
                 idx = header_to_idx.get(csv_header)
                 if idx is None or idx >= len(line):
@@ -235,12 +255,12 @@ class ExtractCommand(CommandBase):
             data_to_preview.append(row_data)
 
         if data_to_preview:
-            table = Table(show_header=True, header_style="bold magenta")
+            preview_table = Table(show_header=True, header_style="bold magenta")
             for col in columns_to_import:
-                table.add_column(col)
+                preview_table.add_column(col)
             for row in data_to_preview:
-                table.add_row(*(row.get(col, "") for col in columns_to_import))
-            console.print(table)
+                preview_table.add_row(*(row.get(col, "") for col in columns_to_import))
+            console.print(preview_table)
         else:
             console.print(
                 "[yellow]no data to preview (all 5 preview rows were filtered out)[/yellow]"
@@ -268,7 +288,7 @@ class ExtractCommand(CommandBase):
                         f"  - [cyan]{col}[/cyan] must match regex -> [magenta]'{escape(regex)}'[/magenta]"
                     )
 
-        proceed = questionary.confirm("proceed with extraction?").ask()
+        proceed = prompts.ask_bool(questionary.confirm("proceed with extraction?"))
         if not proceed:
             raise typer.Abort()
 
@@ -280,12 +300,12 @@ class ExtractCommand(CommandBase):
 
         with file_path.open("r", encoding=final_encoding, newline="") as f:
             reader = csv.reader(f, delimiter=separator)
-            next(reader)  # skip header
+            _ = next(reader)  # skip header
 
-            batch = []
+            batch: list[dict[str, str]] = []
             total_saved = 0
             filtered_out_count = 0
-            for _, row_parts in enumerate(reader):
+            for row_parts in reader:
                 if not row_parts:
                     continue
 

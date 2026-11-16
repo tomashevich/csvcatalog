@@ -7,13 +7,13 @@ from rich.console import Console
 from rich.table import Table
 from typer import Context
 
-from .. import config, crypto
+from .. import config, crypto, prompts
 
 app = typer.Typer(invoke_without_command=True)
 console = Console()
 
 
-def _show_settings():
+def _show_settings() -> None:
     """loads and displays current settings"""
     settings = config.load_config()
     table = Table("setting", "value")
@@ -27,23 +27,22 @@ def _show_settings():
 
 
 @app.callback(invoke_without_command=True)
-def main(ctx: Context):
+def main(ctx: Context) -> None:
     """manage application settings"""
     if ctx.invoked_subcommand is None:
         _show_settings()
 
 
 @app.command()
-def show():
+def show() -> None:
     """show current settings"""
     _show_settings()
 
 
 @app.command()
 def dbfile(
-    ctx: typer.Context,
     db_path: Annotated[Path, typer.Argument(help="path to the database file")],
-):
+) -> None:
     """set the path to the database file"""
     settings = config.load_config()
     settings.db_path = db_path
@@ -53,9 +52,8 @@ def dbfile(
 
 @app.command()
 def encryption(
-    ctx: typer.Context,
     enable: Annotated[bool, typer.Argument(help="enable or disable encryption")],
-):
+) -> None:
     """enable or disable database encryption"""
     settings = config.load_config()
     if settings.encryption == enable:
@@ -80,7 +78,9 @@ def encryption(
         console.print(f"encryption {status}, a password will be required on next use")
         return
 
-    password = questionary.password("please enter the password for the database:").ask()
+    password = prompts.ask_text(
+        questionary.password("please enter the password for the database:")
+    )
     if not password:
         console.print("[yellow]operation cancelled[/yellow]")
         raise typer.Abort()

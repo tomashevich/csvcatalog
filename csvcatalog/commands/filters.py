@@ -1,11 +1,12 @@
 from typing import Annotated
 
+import questionary
 import typer
 from rich.console import Console
 from rich.table import Table
 from typer import Context
 
-from .. import config
+from .. import config, prompts
 
 app = typer.Typer(
     invoke_without_command=True, help="manage saved reusable regex filters"
@@ -13,7 +14,7 @@ app = typer.Typer(
 console = Console()
 
 
-def list_filters():
+def list_filters() -> None:
     """lists all saved filters"""
     settings = config.load_config()
     if not settings.filters:
@@ -27,7 +28,7 @@ def list_filters():
 
 
 @app.callback(invoke_without_command=True)
-def main(ctx: Context):
+def main(ctx: Context) -> None:
     """manage saved reusable regex filters"""
     if ctx.invoked_subcommand is None:
         list_filters()
@@ -37,7 +38,7 @@ def main(ctx: Context):
 def add(
     name: Annotated[str, typer.Argument(help="the name of the filter")],
     pattern: Annotated[str, typer.Argument(help="the regex pattern for the filter")],
-):
+) -> None:
     """adds or updates a saved filter"""
     settings = config.load_config()
     settings.filters[name] = pattern
@@ -50,7 +51,7 @@ def remove(
     name: Annotated[
         str | None, typer.Argument(help="the name of the filter to remove")
     ] = None,
-):
+) -> None:
     """removes one or more saved filters"""
     settings = config.load_config()
     if not settings.filters:
@@ -67,12 +68,10 @@ def remove(
             raise typer.Abort()
     else:
         # interactive removal
-        import questionary
-
         choices = list(settings.filters.keys())
-        filters_to_remove = questionary.checkbox(
-            "select filters to remove", choices=choices
-        ).ask()
+        filters_to_remove = prompts.ask_list(
+            questionary.checkbox("select filters to remove", choices=choices)
+        )
 
         if not filters_to_remove:
             console.print("no filters selected aborting")
