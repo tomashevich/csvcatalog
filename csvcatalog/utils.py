@@ -1,3 +1,6 @@
+from datetime import UTC, datetime
+from pathlib import Path
+
 import questionary
 import typer
 from questionary import Separator
@@ -7,6 +10,13 @@ from . import config, prompts
 from .config import Settings
 
 console = Console()
+
+
+def file_creation_time(path: Path) -> datetime:
+    """return the file creation time in UTC, falling back to inode change time"""
+    stat = path.stat()
+    timestamp = getattr(stat, "st_birthtime", stat.st_ctime)
+    return datetime.fromtimestamp(timestamp, UTC)
 
 
 def define_filters_loop(

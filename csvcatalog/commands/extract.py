@@ -258,6 +258,8 @@ class ExtractCommand(CommandBase[[Path, str]]):
         if description is None:  # if user presses ctrl+c
             raise typer.Abort()
 
+        file_created_at = utils.file_creation_time(file_path)
+
         # preview data
         console.print("\n[bold]preview of data to be imported:[/bold]")
         header_to_idx = {header: i for i, header in enumerate(csv_headers)}
@@ -297,6 +299,7 @@ class ExtractCommand(CommandBase[[Path, str]]):
         # summary
         console.print("\n[bold]summary[/bold]")
         console.print(f"  file:       {file_path}")
+        console.print(f"  file date:  {file_created_at.date().isoformat()}")
         console.print(f"  table:      {table_name}")
         console.print(
             f"  description: {description if description != 'no' else '[grey50]no description[/grey50]'}"
@@ -328,6 +331,7 @@ class ExtractCommand(CommandBase[[Path, str]]):
         # extraction
         console.print("starting extraction...")
         self.storage.create_table(table_name, columns_to_import)
+        self.storage.update_created_at(table_name, file_created_at.isoformat())
         if description != "no":
             self.storage.update_description(table_name, description)
 

@@ -78,7 +78,7 @@ csvcatalog extract path/to/my/data.csv
 
 `typer` provides help for all commands. just run `csvcatalog --help` or `csvcatalog <command> --help` for more details.
 
-*   `extract <file.csv>`: run an interactive wizard to import a csv file. you can map columns, select which ones to import, apply regex filters to include/exclude specific rows, and optionally keep only the first row for each unique combination of selected columns.
+*   `extract <file.csv>`: run an interactive wizard to import a csv file. you can map columns, select which ones to import, apply regex filters to include/exclude specific rows, and optionally keep only the first row for each unique combination of selected columns. the table's created date is taken from the source file's creation time.
 *   `search <value> [targets...]`: search for a value across one or more tables and columns.
 *   `rows <table_name>`: show a page of rows with optional search, column selection, sorting, and pagination.
     *   `--limit <n>` / `--page <n>`: page size and page number.

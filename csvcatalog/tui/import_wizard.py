@@ -2,6 +2,7 @@ import asyncio
 import csv
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import cast, final, override
 
@@ -30,7 +31,7 @@ from textual.widgets import (
 )
 from textual.widgets.selection_list import Selection
 
-from .. import config, storage
+from .. import config, storage, utils
 from ..config import Settings
 from ..storage import BaseStorage
 from .format import truncate
@@ -96,6 +97,7 @@ class CsvImportWizard(Screen[ImportResult | None]):
         self._step_index = 0
         self._importing = False
         self._file_path: Path | None = None
+        self._file_created_at: datetime | None = None
         self._encoding = "utf-8"
         self._separator = ","
         self._headers: list[str] = []
@@ -454,6 +456,7 @@ class CsvImportWizard(Screen[ImportResult | None]):
             self._separator,
         )
         self._file_path = path
+        self._file_created_at = utils.file_creation_time(path)
         self._encoding = encoding
         self._separator = separator
         self._headers = headers
@@ -925,6 +928,7 @@ class CsvImportWizard(Screen[ImportResult | None]):
         separator = "\\t" if self._separator == "\t" else self._separator
         lines = [
             f"File:        {self._file_path}",
+            f"File date:   {self._file_created_at.date().isoformat() if self._file_created_at else '—'}",
             f"Encoding:    {self._encoding}",
             f"Separator:   {separator}",
             f"Table:       {self._table_name}",
@@ -1016,6 +1020,11 @@ class CsvImportWizard(Screen[ImportResult | None]):
         try:
             self.storage.create_table(self._table_name, columns)
             created = True
+            if self._file_created_at is not None:
+                self.storage.update_created_at(
+                    self._table_name,
+                    self._file_created_at.isoformat(),
+                )
             if self._description:
                 self.storage.update_description(
                     self._table_name,
