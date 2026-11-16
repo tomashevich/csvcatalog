@@ -42,6 +42,7 @@ STEP_IDS = (
     "import-columns",
     "import-mapping",
     "import-filters",
+    "import-unique",
     "import-details",
     "import-review",
     "import-progress",
@@ -51,6 +52,7 @@ STEP_TITLES = (
     "Columns",
     "Mapping",
     "Filters",
+    "Unique",
     "Details",
     "Review",
     "Import",
@@ -64,6 +66,7 @@ class ImportResult:
     table_name: str
     saved_rows: int
     filtered_rows: int
+    duplicates_skipped: int = 0
 
 
 @final
@@ -101,6 +104,7 @@ class CsvImportWizard(Screen[ImportResult | None]):
         self._column_map: dict[str, str] = {}
         self._filters: dict[str, list[str]] = {}
         self._filter_rows: list[tuple[str, str]] = []
+        self._unique_columns: list[str] = []
         self._table_name = ""
         self._description = ""
         self._mapping_selected: str | None = None
@@ -249,6 +253,29 @@ class CsvImportWizard(Screen[ImportResult | None]):
                         )
                     yield Static("", id="import-filter-status")
 
+                with Vertical(id="import-unique", classes="import-step-body"):
+                    yield Static(
+                        "Optionally select columns whose combination must be unique. The first occurrence is kept.",
+                        classes="modal-hint",
+                    )
+                    with Horizontal(classes="form-row compact form-actions"):
+                        yield Button(
+                            "All",
+                            id="import-unique-all",
+                            classes="compact-action",
+                        )
+                        yield Button(
+                            "None",
+                            id="import-unique-none",
+                            classes="compact-action",
+                        )
+                        yield Static("", id="import-unique-count")
+                    yield SelectionList(id="import-unique-list", compact=True)
+                    yield Static(
+                        "Selected columns form one combined uniqueness key.",
+                        classes="form-note",
+                    )
+
                 with Vertical(id="import-details", classes="import-step-body"):
                     yield Static(
                         "Give the new table a name and optional description.",
@@ -313,8 +340,10 @@ class CsvImportWizard(Screen[ImportResult | None]):
         elif index == 3:
             self._prepare_filters()
         elif index == 4:
-            self._prepare_details()
+            self._prepare_unique()
         elif index == 5:
+            self._prepare_details()
+        elif index == 6:
             self._prepare_review()
 
     @on(Button.Pressed, "#import-cancel")
@@ -328,6 +357,8 @@ class CsvImportWizard(Screen[ImportResult | None]):
         if self._step_index == 1:
             _ = self._collect_columns(validate=False)
         elif self._step_index == 4:
+            _ = self._collect_unique()
+        elif self._step_index == 5:
             _ = self._collect_details(validate=False)
         self._set_step(self._step_index - 1)
 
@@ -344,9 +375,11 @@ class CsvImportWizard(Screen[ImportResult | None]):
             return
         elif self._step_index == 2 and not self._validate_mapping():
             return
-        elif self._step_index == 4 and not self._collect_details(validate=True):
+        elif self._step_index == 4 and not self._collect_unique():
             return
-        elif self._step_index == 5:
+        elif self._step_index == 5 and not self._collect_details(validate=True):
+            return
+        elif self._step_index == 6:
             self._start_import()
             return
         self._set_step(self._step_index + 1)
@@ -431,6 +464,7 @@ class CsvImportWizard(Screen[ImportResult | None]):
                 header: storage.sanitize_identifier(header) for header in headers
             }
             self._filters = {}
+            self._unique_columns = []
             default_name = storage.sanitize_identifier(path.stem) or "table"
             self._table_name = default_name
             self._description = ""
@@ -471,7 +505,7 @@ class CsvImportWizard(Screen[ImportResult | None]):
         _ = event
         if self._headers:
             self._render_source_preview()
-        if self._step_index == 5:
+        if self._step_index == 6:
             self._prepare_review()
 
     def _prepare_columns(self) -> None:
@@ -549,6 +583,9 @@ class CsvImportWizard(Screen[ImportResult | None]):
             for column, patterns in self._filters.items()
             if column in mapped
         }
+        self._unique_columns = [
+            column for column in self._unique_columns if column in mapped
+        ]
         return True
 
     def _prepare_mapping(self) -> None:
@@ -606,6 +643,9 @@ class CsvImportWizard(Screen[ImportResult | None]):
         self._column_map[self._mapping_selected] = mapped
         if old_name in self._filters:
             self._filters[mapped] = self._filters.pop(old_name)
+        if old_name in self._unique_columns:
+            index = self._unique_columns.index(old_name)
+            self._unique_columns[index] = mapped
         cast(
             DataTable[Text],
             self.query_one("#import-mapping-table", DataTable),
@@ -744,6 +784,74 @@ class CsvImportWizard(Screen[ImportResult | None]):
         self.query_one("#import-filter-status", Static).update("")
         self._render_filters()
 
+    def _prepare_unique(self) -> None:
+        columns = [self._column_map[header] for header in self._selected_headers]
+        selection_list = cast(
+            SelectionList[str],
+            self.query_one("#import-unique-list", SelectionList),
+        )
+        _ = selection_list.clear_options()
+        selected = set(self._unique_columns)
+        _ = selection_list.add_options(
+            [
+                Selection(
+                    column,
+                    column,
+                    initial_state=column in selected,
+                )
+                for column in columns
+            ]
+        )
+        _ = selection_list.focus()
+        self._update_unique_count()
+
+    def _update_unique_count(self) -> None:
+        selection_list = cast(
+            SelectionList[str],
+            self.query_one("#import-unique-list", SelectionList),
+        )
+        count = len(selection_list.selected)
+        if count:
+            text = f"{count} {'column' if count == 1 else 'columns'} selected"
+        else:
+            text = "Duplicate checking off"
+        self.query_one("#import-unique-count", Static).update(text)
+
+    @on(SelectionList.SelectedChanged, "#import-unique-list")
+    def _unique_selection_changed(
+        self, event: SelectionList.SelectedChanged[str]
+    ) -> None:
+        _ = event
+        self._update_unique_count()
+
+    @on(Button.Pressed, "#import-unique-all")
+    def _select_all_unique(self) -> None:
+        selection_list = cast(
+            SelectionList[str],
+            self.query_one("#import-unique-list", SelectionList),
+        )
+        _ = selection_list.select_all()
+        self._update_unique_count()
+
+    @on(Button.Pressed, "#import-unique-none")
+    def _select_no_unique(self) -> None:
+        selection_list = cast(
+            SelectionList[str],
+            self.query_one("#import-unique-list", SelectionList),
+        )
+        _ = selection_list.deselect_all()
+        self._update_unique_count()
+
+    def _collect_unique(self) -> bool:
+        selection_list = cast(
+            SelectionList[str],
+            self.query_one("#import-unique-list", SelectionList),
+        )
+        selected = set(selection_list.selected)
+        mapped = [self._column_map[header] for header in self._selected_headers]
+        self._unique_columns = [column for column in mapped if column in selected]
+        return True
+
     def _prepare_details(self) -> None:
         name = self._table_name or (
             storage.sanitize_identifier(self._file_path.stem)
@@ -786,6 +894,7 @@ class CsvImportWizard(Screen[ImportResult | None]):
     def _build_preview_rows(self) -> list[dict[str, str]]:
         header_index = {header: index for index, header in enumerate(self._headers)}
         rows: list[dict[str, str]] = []
+        seen: set[tuple[str, ...]] = set()
         for line in self._preview_rows:
             row_data: dict[str, str] = {}
             for header in self._selected_headers:
@@ -795,6 +904,11 @@ class CsvImportWizard(Screen[ImportResult | None]):
                 row_data[self._column_map[header]] = line[index]
             if not row_data or self._row_is_filtered_out(row_data):
                 continue
+            if self._unique_columns:
+                key = tuple(row_data.get(column, "") for column in self._unique_columns)
+                if key in seen:
+                    continue
+                seen.add(key)
             rows.append(row_data)
         return rows
 
@@ -828,6 +942,15 @@ class CsvImportWizard(Screen[ImportResult | None]):
                     lines.append(f"  {column} must match {pattern}")
         else:
             lines.append("Filters: none")
+        lines.append("")
+        if self._unique_columns:
+            lines.append(
+                "Unique by:    "
+                + " + ".join(self._unique_columns)
+                + "  (first occurrence kept)"
+            )
+        else:
+            lines.append("Unique by:    none")
         self.query_one("#import-summary", Static).update("\n".join(lines))
 
         preview = self._build_preview_rows()
@@ -853,7 +976,7 @@ class CsvImportWizard(Screen[ImportResult | None]):
             )
         note = self.query_one("#import-review-note", Static)
         if preview:
-            note.update("Preview: first 5 rows after filters.")
+            note.update("Preview: first 5 rows after filters and duplicate checks.")
         else:
             note.update("Preview: no preview rows match the filters.")
 
@@ -865,7 +988,7 @@ class CsvImportWizard(Screen[ImportResult | None]):
                 f"Table '{self._table_name}' already exists",
                 severity="error",
             )
-            self._set_step(4)
+            self._set_step(5)
             return
         self._importing = True
         self._set_step(len(STEP_IDS) - 1)
@@ -873,10 +996,11 @@ class CsvImportWizard(Screen[ImportResult | None]):
         self.query_one("#import-progress-note", Static).update("")
         _ = self._perform_import()
 
-    def _update_progress(self, saved: int, filtered: int) -> None:
-        self.query_one("#import-status", Static).update(
-            f"Saved {saved:,} rows · filtered out {filtered:,}"
-        )
+    def _update_progress(self, saved: int, filtered: int, duplicates: int) -> None:
+        text = f"Saved {saved:,} rows · filtered out {filtered:,}"
+        if self._unique_columns:
+            text += f" · duplicates skipped {duplicates:,}"
+        self.query_one("#import-status", Static).update(text)
 
     @work(exclusive=True)
     async def _perform_import(self) -> None:
@@ -887,6 +1011,8 @@ class CsvImportWizard(Screen[ImportResult | None]):
         created = False
         saved = 0
         filtered = 0
+        duplicates = 0
+        seen: set[tuple[str, ...]] = set()
         try:
             self.storage.create_table(self._table_name, columns)
             created = True
@@ -917,24 +1043,33 @@ class CsvImportWizard(Screen[ImportResult | None]):
                     if self._row_is_filtered_out(row_data):
                         filtered += 1
                         continue
+                    if self._unique_columns:
+                        unique_key = tuple(
+                            row_data.get(column, "") for column in self._unique_columns
+                        )
+                        if unique_key in seen:
+                            duplicates += 1
+                            continue
+                        seen.add(unique_key)
                     batch.append(row_data)
                     if len(batch) < BATCH_SIZE:
                         continue
                     self.storage.save(self._table_name, batch)
                     saved += len(batch)
                     batch.clear()
-                    self._update_progress(saved, filtered)
+                    self._update_progress(saved, filtered, duplicates)
                     await asyncio.sleep(0)
                 if batch:
                     self.storage.save(self._table_name, batch)
                     saved += len(batch)
-                    self._update_progress(saved, filtered)
+                    self._update_progress(saved, filtered, duplicates)
             self._importing = False
             _ = self.dismiss(
                 ImportResult(
                     table_name=self._table_name,
                     saved_rows=saved,
                     filtered_rows=filtered,
+                    duplicates_skipped=duplicates,
                 )
             )
         except Exception as e:

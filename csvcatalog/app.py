@@ -16,6 +16,8 @@ from .commands.delete import DeleteCommand
 from .commands.export import ExportCommand
 from .commands.extract import ExtractCommand
 from .commands.purge import PurgeCommand
+from .commands.replace import ReplaceCommand
+from .commands.rows import RowsCommand
 from .commands.search import SearchCommand
 from .commands.sql import SqlCommand
 
@@ -158,12 +160,79 @@ def extract(
 @app.command()
 def delete(
     ctx: Context,
-    table_name: Annotated[str, typer.Argument(help="the name of the table to delete")],
+    table_names: Annotated[
+        list[str],
+        typer.Argument(help="the name(s) of the table(s) to delete"),
+    ],
 ) -> None:
-    """delete a table from the database"""
+    """delete one or more tables from the database"""
     storage_instance, settings = get_command_context(ctx)
     cmd = DeleteCommand(storage_instance, settings)
-    cmd.run(table_name)
+    cmd.run(table_names)
+
+
+@app.command()
+def rows(
+    ctx: Context,
+    table_name: Annotated[str, typer.Argument(help="the table to inspect")],
+    limit: Annotated[
+        int,
+        typer.Option("--limit", "-l", help="rows per page", min=1),
+    ] = 100,
+    page: Annotated[
+        int,
+        typer.Option("--page", "-p", help="page number (1-based)", min=1),
+    ] = 1,
+    search: Annotated[
+        str | None,
+        typer.Option("--search", "-q", help="text to search for"),
+    ] = None,
+    column: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--column",
+            "-c",
+            help="limit search to a column; repeat for multiple columns",
+        ),
+    ] = None,
+    sort: Annotated[
+        str | None,
+        typer.Option("--sort", "-s", help="column to sort by"),
+    ] = None,
+    desc: Annotated[
+        bool,
+        typer.Option("--desc", help="sort descending"),
+    ] = False,
+) -> None:
+    """show a page of rows with optional search and sorting"""
+    storage_instance, settings = get_command_context(ctx)
+    cmd = RowsCommand(storage_instance, settings)
+    cmd.run(table_name, limit, page, search, column, sort, desc)
+
+
+@app.command()
+def replace(
+    ctx: Context,
+    table_name: Annotated[str, typer.Argument(help="the table to modify")],
+    search_value: Annotated[str, typer.Argument(help="text to find")],
+    replacement: Annotated[str, typer.Argument(help="replacement text")],
+    column: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--column",
+            "-c",
+            help="limit replacement to a column; repeat for multiple columns",
+        ),
+    ] = None,
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", "-y", help="skip confirmation"),
+    ] = False,
+) -> None:
+    """replace all matches in the selected columns"""
+    storage_instance, settings = get_command_context(ctx)
+    cmd = ReplaceCommand(storage_instance, settings)
+    cmd.run(table_name, search_value, replacement, column, yes)
 
 
 @app.command()

@@ -78,12 +78,19 @@ csvcatalog extract path/to/my/data.csv
 
 `typer` provides help for all commands. just run `csvcatalog --help` or `csvcatalog <command> --help` for more details.
 
-*   `extract <file.csv>`: run an interactive wizard to import a csv file. you can map columns, select which ones to import, and apply regex filters to include/exclude specific rows.
+*   `extract <file.csv>`: run an interactive wizard to import a csv file. you can map columns, select which ones to import, apply regex filters to include/exclude specific rows, and optionally keep only the first row for each unique combination of selected columns.
 *   `search <value> [targets...]`: search for a value across one or more tables and columns.
+*   `rows <table_name>`: show a page of rows with optional search, column selection, sorting, and pagination.
+    *   `--limit <n>` / `--page <n>`: page size and page number.
+    *   `--search <text>` / `--column <name>`: search text in specific columns.
+    *   `--sort <column>` / `--desc`: sort the rows.
+*   `replace <table_name> <search> <replacement>`: replace every case-insensitive match in the selected columns.
+    *   `--column <name>`: limit replacement to a column; repeat for multiple columns. omitted means all columns.
+    *   `--yes`: skip confirmation.
 *   `export [table_names...]`: export one or more tables to csv files.
     *   if one table is specified, runs a full interactive wizard.
     *   if multiple tables are specified (or none, for all tables), runs a bulk export. you can choose to configure filters for specific tables.
-*   `delete <table_name>`: delete a table from the database.
+*   `delete <table_names...>`: delete one or more tables from the database.
 *   `sql "<query>"`: execute a raw sql query on the database.
 *   `purge`: delete all tables from the database.
 
@@ -145,6 +152,29 @@ csvcatalog search "active" "*.status"
 ```bash
 # a totally valid and powerful query
 csvcatalog search "jane" users.name products
+```
+
+### inspecting rows
+
+the `rows` command shows one page of a table and supports the same search and
+sorting options as the interactive table view:
+
+```bash
+# rows 51-100, searching only name and email, newest first
+csvcatalog rows customers --limit 50 --page 2 --search "jane" --column name --column email --sort created --desc
+```
+
+### replace
+
+`replace` works like find-and-replace in an editor. matching is case-insensitive
+and happens only in the selected columns:
+
+```bash
+# replace every "Tokyo" with "Osaka" in the city column
+csvcatalog replace customers "Tokyo" "Osaka" --column city
+
+# skip the confirmation prompt
+csvcatalog replace customers "Tokyo" "Osaka" --column city --yes
 ```
 
 ## contributing are welcome 🤝

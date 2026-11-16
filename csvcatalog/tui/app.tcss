@@ -504,6 +504,26 @@ ModalScreen {
     background: #1c1c1e;
 }
 
+#import-unique-list {
+    height: 1fr;
+    min-height: 6;
+    margin-top: 1;
+    background: #101012;
+    border: round #232326;
+    scrollbar-color: #2c2c2e;
+    scrollbar-background: #101012;
+}
+
+#import-unique-list > .selection-list--button-selected {
+    color: #0a84ff;
+    background: #101012;
+}
+
+#import-unique-list > .selection-list--button-selected-highlighted {
+    color: #0a84ff;
+    background: #1c1c1e;
+}
+
 Select {
     width: 1fr;
     height: auto;

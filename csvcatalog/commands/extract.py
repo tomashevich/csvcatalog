@@ -33,6 +33,23 @@ class ExtractCommand(CommandBase[[Path, str]]):
                 return True
         return False
 
+    def _ask_unique_columns(self, columns: list[str]) -> list[str]:
+        """asks which columns should form a combined uniqueness key"""
+        if not prompts.ask_bool(
+            questionary.confirm(
+                "skip duplicate rows by a combination of columns?",
+                default=False,
+            )
+        ):
+            return []
+        selected = prompts.ask_list(
+            questionary.checkbox(
+                "select columns that must be unique together:",
+                choices=[Choice(column) for column in columns],
+            )
+        )
+        return [column for column in columns if selected and column in selected]
+
     def _get_csv_data(
         self, file_path: Path, separator: str, encoding: str
     ) -> tuple[list[str], list[list[str]]]:
@@ -213,6 +230,9 @@ class ExtractCommand(CommandBase[[Path, str]]):
         # step 5: define filters
         filters = utils.prompt_for_filters(columns_to_import, self.settings)
 
+        # step 5b: optional duplicate protection
+        unique_columns = self._ask_unique_columns(columns_to_import)
+
         # step 6: table name
         default_table_name = storage.sanitize_identifier(file_path.stem.strip())
         table_name_raw = prompts.ask_text(
@@ -242,6 +262,7 @@ class ExtractCommand(CommandBase[[Path, str]]):
         console.print("\n[bold]preview of data to be imported:[/bold]")
         header_to_idx = {header: i for i, header in enumerate(csv_headers)}
         data_to_preview: list[dict[str, str]] = []
+        preview_seen: set[tuple[str, ...]] = set()
         for line in preview_rows:
             row_data: dict[str, str] = {}
             for csv_header, column_name in column_map.items():
@@ -252,6 +273,13 @@ class ExtractCommand(CommandBase[[Path, str]]):
 
             if not row_data or self._row_is_filtered_out(row_data, filters):
                 continue
+            if unique_columns:
+                unique_key = tuple(
+                    row_data.get(column, "") for column in unique_columns
+                )
+                if unique_key in preview_seen:
+                    continue
+                preview_seen.add(unique_key)
             data_to_preview.append(row_data)
 
         if data_to_preview:
@@ -271,7 +299,7 @@ class ExtractCommand(CommandBase[[Path, str]]):
         console.print(f"  file:       {file_path}")
         console.print(f"  table:      {table_name}")
         console.print(
-            f"  description:{description if description != 'no' else '[grey50]noription[/grey50]'} "
+            f"  description: {description if description != 'no' else '[grey50]no description[/grey50]'}"
         )
         console.print(f"  separator:  '{separator}'")
         console.print(f"  columns:    {', '.join(columns_to_import)}")
@@ -287,6 +315,11 @@ class ExtractCommand(CommandBase[[Path, str]]):
                     console.print(
                         f"  - [cyan]{col}[/cyan] must match regex -> [magenta]'{escape(regex)}'[/magenta]"
                     )
+        if unique_columns:
+            console.print(
+                "[bold]duplicate protection (first occurrence is kept):[/bold] "
+                + " + ".join(unique_columns)
+            )
 
         proceed = prompts.ask_bool(questionary.confirm("proceed with extraction?"))
         if not proceed:
@@ -305,6 +338,8 @@ class ExtractCommand(CommandBase[[Path, str]]):
             batch: list[dict[str, str]] = []
             total_saved = 0
             filtered_out_count = 0
+            duplicates_skipped = 0
+            seen: set[tuple[str, ...]] = set()
             for row_parts in reader:
                 if not row_parts:
                     continue
@@ -323,6 +358,15 @@ class ExtractCommand(CommandBase[[Path, str]]):
                     filtered_out_count += 1
                     continue
 
+                if unique_columns:
+                    unique_key = tuple(
+                        row_data.get(column, "") for column in unique_columns
+                    )
+                    if unique_key in seen:
+                        duplicates_skipped += 1
+                        continue
+                    seen.add(unique_key)
+
                 batch.append(row_data)
 
                 if len(batch) < self.BATCH_SIZE:
@@ -338,5 +382,5 @@ class ExtractCommand(CommandBase[[Path, str]]):
                 total_saved += len(batch)
 
         console.print(
-            f"[green]extraction complete. saved {total_saved} rows.[/green] ({filtered_out_count} rows filtered out)"
+            f"[green]extraction complete. saved {total_saved} rows.[/green] ({filtered_out_count} rows filtered out, {duplicates_skipped} duplicates skipped)"
         )

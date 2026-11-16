@@ -475,6 +475,8 @@ class CatalogTUI(App[None]):
         message = f"Imported {result.saved_rows:,} rows into '{result.table_name}'"
         if result.filtered_rows:
             message += f" · {result.filtered_rows:,} rows filtered out"
+        if result.duplicates_skipped:
+            message += f" · {result.duplicates_skipped:,} duplicates skipped"
         self.notify(message, severity="information")
 
     def _open_overview_search(self) -> None:
