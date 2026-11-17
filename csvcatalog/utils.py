@@ -13,9 +13,18 @@ console = Console()
 
 
 def file_creation_time(path: Path) -> datetime:
-    """return the file creation time in UTC, falling back to inode change time"""
+    """return the source file timestamp in UTC
+
+    use the filesystem birth time when it looks trustworthy, otherwise fall back
+    to the modification time (copying files often resets the birth time).
+    """
     stat = path.stat()
-    timestamp = getattr(stat, "st_birthtime", stat.st_ctime)
+    birth_time = getattr(stat, "st_birthtime", None)
+    timestamp = (
+        birth_time
+        if birth_time is not None and birth_time <= stat.st_mtime
+        else stat.st_mtime
+    )
     return datetime.fromtimestamp(timestamp, UTC)
 
 

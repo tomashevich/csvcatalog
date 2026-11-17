@@ -18,8 +18,8 @@ from .format import database_size, human_size, truncate
 from .import_wizard import CsvImportWizard, ImportResult
 from .modals import (
     ColumnsPatch,
-    ConfirmModal,
     DatabasePickerModal,
+    DeleteTableModal,
     EditTableModal,
     ExportSelectionModal,
     ExportTableModal,
@@ -905,15 +905,13 @@ class CatalogTUI(App[None]):
     def _delete_table_metadata(self) -> None:
         selected = self._selected_table_names()
         if len(selected) > 1:
-            message = f"Delete {len(selected)} selected tables and all of their rows? This cannot be undone."
+            message = (
+                f"Delete {len(selected)} selected tables and all of their rows? "
+                "This cannot be undone."
+            )
             _ = self.push_screen(
-                ConfirmModal(
-                    "Delete tables",
-                    message,
-                    confirm_label="Delete",
-                    destructive=True,
-                ),
-                lambda confirmed: self._delete_tables(selected, confirmed),
+                DeleteTableModal("Delete tables", message),
+                lambda mode: self._delete_tables(selected, mode),
             )
             return
         table = self._current_table()
@@ -923,13 +921,11 @@ class CatalogTUI(App[None]):
 
     def _delete_table_dialog(self, table_name: str) -> None:
         _ = self.push_screen(
-            ConfirmModal(
+            DeleteTableModal(
                 "Delete table",
                 f"Delete '{table_name}' and all of its rows? This cannot be undone.",
-                confirm_label="Delete",
-                destructive=True,
             ),
-            lambda confirmed: self._delete_table(table_name, confirmed),
+            lambda mode: self._delete_table(table_name, mode),
         )
 
     def _apply_settings(self, settings: Settings | None) -> None:
@@ -1006,11 +1002,14 @@ class CatalogTUI(App[None]):
         for old_name, new_name in patch.renames.items():
             self.storage.rename_column(table_name, old_name, new_name)
 
-    def _delete_table(self, name: str, confirmed: bool | None) -> None:
-        if not confirmed or self.storage is None:
+    def _delete_table(self, name: str, mode: str | None) -> None:
+        if mode is None or self.storage is None:
             return
         try:
             self.storage.delete_table(name)
+            if mode == "compact":
+                self.notify("Compacting database...", severity="information")
+                self.storage.compact_database()
         except Exception as e:
             self.notify(f"Could not delete table: {e}", severity="error")
             return
@@ -1018,10 +1017,11 @@ class CatalogTUI(App[None]):
         if self._selected_name == name:
             self._selected_name = None
         self._refresh_data()
-        self.notify(f"Table '{name}' deleted", severity="information")
+        suffix = " · database compacted" if mode == "compact" else ""
+        self.notify(f"Table '{name}' deleted{suffix}", severity="information")
 
-    def _delete_tables(self, names: list[str], confirmed: bool | None) -> None:
-        if not confirmed or self.storage is None:
+    def _delete_tables(self, names: list[str], mode: str | None) -> None:
+        if mode is None or self.storage is None:
             return
         deleted = 0
         for name in names:
@@ -1032,12 +1032,19 @@ class CatalogTUI(App[None]):
                 continue
             self._close_table_tab(name)
             deleted += 1
+        if deleted and mode == "compact":
+            try:
+                self.notify("Compacting database...", severity="information")
+                self.storage.compact_database()
+            except Exception as e:
+                self.notify(f"Could not compact database: {e}", severity="error")
         if self._selected_name in names:
             self._selected_name = None
         self._tables_widget().clear_selection()
         self._refresh_data()
         if deleted:
+            suffix = " · database compacted" if mode == "compact" else ""
             self.notify(
-                f"Deleted {deleted:,} {'table' if deleted == 1 else 'tables'}",
+                f"Deleted {deleted:,} {'table' if deleted == 1 else 'tables'}{suffix}",
                 severity="information",
             )

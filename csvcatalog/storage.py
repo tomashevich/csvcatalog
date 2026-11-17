@@ -73,6 +73,9 @@ class BaseStorage(ABC):
     def delete_table(self, name: str) -> None: ...
 
     @abstractmethod
+    def compact_database(self) -> None: ...
+
+    @abstractmethod
     def purge_database(self) -> None: ...
 
     @abstractmethod
@@ -211,14 +214,25 @@ class SqliteStorage(BaseStorage):
 
     @override
     def delete_table(self, name: str) -> None:
-        """deletes a table and its metadata entry"""
+        """deletes a table and its metadata entry
+
+        DROP TABLE is intentionally not followed by VACUUM: on a large catalog
+        VACUUM rewrites the whole database file and makes a simple table delete
+        take minutes. Run VACUUM explicitly (with the app closed) when disk
+        space actually needs to be reclaimed.
+        """
         _validate_identifier(name)
         _ = self.cur.execute(f'DROP TABLE IF EXISTS "{name}"')
         _ = self.cur.execute(
             f'DELETE FROM "{META_TABLE_NAME}" WHERE table_name = ?', (name,)
         )
         self.con.commit()
+
+    @override
+    def compact_database(self) -> None:
+        """rewrites the database file to release free pages produced by deletes"""
         _ = self.cur.execute("VACUUM")
+        self.con.commit()
 
     @override
     def purge_database(self) -> None:
@@ -641,12 +655,36 @@ class SqliteStorage(BaseStorage):
         all_tables_map: dict[str, Table] | None = None  # lazy load
 
         for target in targets:
-            _validate_identifier(target.split(".", 1)[0].replace("*", "all"))
-            if "." in target:
-                _validate_identifier(target.split(".", 1)[1].replace("*", "all"))
-            table_name, column_name = (
-                target.split(".", 1) if "." in target else (target, None)
-            )
+            # table names may themselves contain dots (e.g. "example.com"),
+            # so prefer the longest matching table name before treating the
+            # final segment as a column.
+            table_name: str
+            column_name: str | None
+            if target in {"*", "all"}:
+                table_name, column_name = "*", None
+            elif target.startswith("*."):
+                table_name, column_name = "*", target[2:]
+            elif self.get_table(target) is not None:
+                table_name, column_name = target, None
+            else:
+                matched: tuple[str, str] | None = None
+                for candidate in self.get_tables():
+                    prefix = f"{candidate.name}."
+                    if not target.startswith(prefix):
+                        continue
+                    remainder = target[len(prefix) :]
+                    if remainder == "*" or remainder in candidate.columns:
+                        if matched is None or len(candidate.name) > len(matched[0]):
+                            matched = (candidate.name, remainder)
+                if matched is None:
+                    table_name, column_name = (
+                        target.split(".", 1) if "." in target else (target, None)
+                    )
+                else:
+                    table_name, column_name = matched
+            _validate_identifier(table_name.replace("*", "all"))
+            if column_name:
+                _validate_identifier(column_name.replace("*", "all"))
 
             if table_name == "*":
                 if all_tables_map is None:

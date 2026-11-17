@@ -10,11 +10,12 @@ from .base import CommandBase
 console = Console()
 
 
-class DeleteCommand(CommandBase[[list[str]]]):
+class DeleteCommand(CommandBase[[list[str], bool]]):
     @override
     def execute(
         self,
         table_names: list[str],
+        compact: bool = False,
     ) -> None:
         """delete one or more tables"""
         existing = [
@@ -43,6 +44,10 @@ class DeleteCommand(CommandBase[[list[str]]]):
         for table_name in existing:
             self.storage.delete_table(table_name)
             console.print(f"[green]table '{table_name}' deleted successfully[/green]")
+        if compact:
+            console.print("[cyan]compacting database...[/cyan]")
+            self.storage.compact_database()
+            console.print("[green]database compacted[/green]")
 
 
 __all__ = ["DeleteCommand"]

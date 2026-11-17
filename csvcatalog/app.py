@@ -164,11 +164,27 @@ def delete(
         list[str],
         typer.Argument(help="the name(s) of the table(s) to delete"),
     ],
+    compact: Annotated[
+        bool,
+        typer.Option(
+            "--compact",
+            help="run VACUUM after deletion to free disk space",
+        ),
+    ] = False,
 ) -> None:
     """delete one or more tables from the database"""
     storage_instance, settings = get_command_context(ctx)
     cmd = DeleteCommand(storage_instance, settings)
-    cmd.run(table_names)
+    cmd.run(table_names, compact)
+
+
+@app.command()
+def compact(ctx: Context) -> None:
+    """compact the database and release disk space left by deleted tables"""
+    storage_instance, _settings = get_command_context(ctx)
+    console.print("compacting database...")
+    storage_instance.compact_database()
+    console.print("[green]database compacted[/green]")
 
 
 @app.command()

@@ -135,6 +135,54 @@ class ConfirmModal(ModalScreen[bool]):
 
 
 @final
+class DeleteTableModal(ModalScreen[str | None]):
+    """choose between a fast delete and a delete that also compacts the database"""
+
+    BINDINGS = [Binding("escape", "cancel", "Cancel", show=False)]
+
+    def __init__(self, title: str, message: str) -> None:
+        super().__init__()
+        self._title = title
+        self._message = message
+
+    @override
+    def compose(self) -> ComposeResult:
+        with Container(classes="modal narrow"):
+            yield Static(self._title, classes="modal-title")
+            yield Static(self._message, classes="modal-message")
+            yield Static(
+                "Compact runs VACUUM, frees disk space, and rewrites the whole database. It can take a long time on a large catalog.",
+                classes="modal-hint",
+            )
+            with HorizontalScroll(classes="modal-actions"):
+                yield Button("Cancel", id="delete-cancel")
+                yield Button("Delete only", id="delete-fast")
+                yield Button(
+                    "Delete + compact",
+                    id="delete-compact",
+                    variant="error",
+                )
+
+    def on_mount(self) -> None:
+        _ = self.query_one("#delete-cancel", Button).focus()
+
+    @on(Button.Pressed, "#delete-cancel")
+    def _cancel(self) -> None:
+        _ = self.dismiss(None)
+
+    @on(Button.Pressed, "#delete-fast")
+    def _delete_fast(self) -> None:
+        _ = self.dismiss("delete")
+
+    @on(Button.Pressed, "#delete-compact")
+    def _delete_compact(self) -> None:
+        _ = self.dismiss("compact")
+
+    def action_cancel(self) -> None:
+        _ = self.dismiss(None)
+
+
+@final
 class DatabasePickerModal(ModalScreen[Path | None]):
     """ask for a database path when the configured one cannot be opened"""
 
